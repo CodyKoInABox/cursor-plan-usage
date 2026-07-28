@@ -2,11 +2,6 @@
   const vscode = acquireVsCodeApi();
   const app = document.getElementById('app');
 
-  const CURSOR_NOTE =
-    'Requests beyond your included usage will use Extra Usage if available, otherwise charged at the API rate if on-demand is on.';
-  const OTHER_NOTE =
-    'At least $20 of on-demand usage is required before these models are available when over plan limits.';
-
   function esc(s) {
     return String(s)
       .replace(/&/g, '&amp;')
@@ -20,19 +15,32 @@
     return `${Math.round(v * 10) / 10}%`;
   }
 
-  function fmtWhen(iso) {
-    if (!iso) return '';
+  function fmtWhen(value) {
+    if (value == null || value === '') return '';
     try {
-      const d = new Date(iso);
-      if (Number.isNaN(d.getTime())) return String(iso);
+      let d;
+      if (typeof value === 'number') {
+        d = new Date(value < 1e12 ? value * 1000 : value);
+      } else {
+        const s = String(value).trim();
+        // API often sends epoch ms/sec as a numeric string — Date("1786…") is Invalid
+        if (/^\d+$/.test(s)) {
+          const n = Number(s);
+          d = new Date(n < 1e12 ? n * 1000 : n);
+        } else {
+          d = new Date(s);
+        }
+      }
+      if (Number.isNaN(d.getTime())) return String(value);
       return d.toLocaleString(undefined, {
         month: 'short',
         day: 'numeric',
+        year: 'numeric',
         hour: '2-digit',
         minute: '2-digit',
       });
     } catch {
-      return String(iso);
+      return String(value);
     }
   }
 
@@ -62,10 +70,10 @@
       ? `<div class="email">${esc(data.email)}</div>`
       : '';
     const cycle = data.billingCycleEnd
-      ? `<div class="meta">Billing cycle ends ${esc(fmtWhen(data.billingCycleEnd))}</div>`
+      ? `<div class="meta meta-stack"><span class="meta-label">Billing cycle ends</span><span class="meta-value">${esc(fmtWhen(data.billingCycleEnd))}</span></div>`
       : '';
     const refreshed = data.refreshedAt
-      ? `<div class="meta">Last refreshed ${esc(fmtWhen(data.refreshedAt))}</div>`
+      ? `<div class="meta meta-stack"><span class="meta-label">Last refreshed</span><span class="meta-value">${esc(fmtWhen(data.refreshedAt))}</span></div>`
       : '';
 
     app.innerHTML =
@@ -73,14 +81,14 @@
       `<h1>Included in ${plan}</h1>` +
       email +
       `</div>` +
+      `<hr class="divider" />` +
       `<section class="section">` +
       `<div class="section-head">` +
       `<h2 class="section-title">Cursor Models</h2>` +
       `<span class="percent">${esc(fmtPercent(auto))} used</span>` +
       `</div>` +
-      `<p class="subtitle">Includes Cursor Grok 4.5 and Composer 2.5</p>` +
+      `<p class="subtitle">Auto mode and Cursor's models</p>` +
       `<progress class="bar bar-cursor" max="100" value="${auto}">${esc(fmtPercent(auto))}</progress>` +
-      `<p class="note">${esc(CURSOR_NOTE)}</p>` +
       `</section>` +
       `<hr class="divider" />` +
       `<section class="section">` +
@@ -90,15 +98,12 @@
       `</div>` +
       `<p class="subtitle">Third-party API models</p>` +
       `<progress class="bar bar-other" max="100" value="${api}">${esc(fmtPercent(api))}</progress>` +
-      `<p class="note">${esc(OTHER_NOTE)}</p>` +
       `</section>` +
+      `<hr class="divider" />` +
       `<div class="footer">` +
       cycle +
       refreshed +
-      `<div class="actions"><button class="primary" id="btn-refresh" type="button">Refresh</button></div>` +
       `</div>`;
-
-    bindRefresh();
   }
 
   function bindRefresh() {

@@ -5,8 +5,8 @@ export interface UsageSnapshot {
   email?: string;
   autoPercentUsed: number;
   apiPercentUsed: number;
-  billingCycleEnd?: string;
-  billingCycleStart?: string;
+  billingCycleEnd?: string | number;
+  billingCycleStart?: string | number;
   refreshedAt: string;
 }
 
@@ -25,8 +25,8 @@ export interface PlanUsageBlock {
 
 export interface CurrentPeriodUsageResponse {
   planUsage?: PlanUsageBlock;
-  billingCycleStart?: string;
-  billingCycleEnd?: string;
+  billingCycleStart?: string | number;
+  billingCycleEnd?: string | number;
   displayMessage?: string;
   membershipType?: string;
 }

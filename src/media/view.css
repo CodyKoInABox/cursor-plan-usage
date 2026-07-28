@@ -56,7 +56,7 @@ body {
 
 .header h1 {
   margin: 0;
-  font-size: 1.15em;
+  font-size: 1.25em;
   font-weight: 600;
   letter-spacing: -0.01em;
 }
@@ -81,7 +81,7 @@ body {
 
 .section-title {
   margin: 0;
-  font-size: 0.95em;
+  font-size: 1.08em;
   font-weight: 600;
 }
 
@@ -91,8 +91,7 @@ body {
   white-space: nowrap;
 }
 
-.subtitle,
-.note {
+.subtitle {
   margin: 0;
   color: var(--muted);
   font-size: 0.8em;
@@ -170,6 +169,22 @@ body {
   color: var(--muted);
   font-size: 0.78em;
   line-height: 1.4;
+}
+
+.meta-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.meta-value {
+  display: inline-block;
+  align-self: flex-start;
+  color: var(--fg);
+  font-size: 1.05em;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--fg) 10%, transparent);
 }
 
 .actions {
