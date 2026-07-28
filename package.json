@@ -1,0 +1,109 @@
+{
+  "name": "cursor-plan-usage",
+  "displayName": "Cursor Plan Usage",
+  "description": "Dockable sidebar showing Cursor Models and Other Models plan usage percentages.",
+  "version": "0.1.0",
+  "publisher": "CodyKoInABox",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CodyKoInABox/cursor-plan-usage.git"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "cursor",
+    "usage",
+    "plan",
+    "billing"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "cursorPlanUsage",
+          "title": "Plan Usage",
+          "icon": "resources/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "cursorPlanUsage": [
+        {
+          "type": "webview",
+          "id": "cursorPlanUsage.panel",
+          "name": "Plan Usage"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "cursorPlanUsage.focus",
+        "title": "Plan Usage: Focus",
+        "category": "Plan Usage"
+      },
+      {
+        "command": "cursorPlanUsage.refresh",
+        "title": "Plan Usage: Refresh",
+        "icon": "$(refresh)",
+        "category": "Plan Usage"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "cursorPlanUsage.refresh",
+          "when": "view == cursorPlanUsage.panel",
+          "group": "navigation"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Cursor Plan Usage",
+      "properties": {
+        "cursorPlanUsage.pollIntervalSeconds": {
+          "type": "number",
+          "default": 120,
+          "minimum": 0,
+          "description": "Auto-refresh interval in seconds. Set to 0 to disable polling."
+        },
+        "cursorPlanUsage.sessionToken": {
+          "type": "string",
+          "default": "",
+          "description": "Optional WorkosCursorSessionToken or JWT override if auto-detect from Cursor's local DB fails."
+        },
+        "cursorPlanUsage.apiBaseUrl": {
+          "type": "string",
+          "default": "https://api2.cursor.sh",
+          "description": "Cursor API base URL for dashboard RPC calls."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "node esbuild.js",
+    "watch": "node esbuild.js --watch",
+    "check": "tsc --noEmit",
+    "package": "vsce package --no-dependencies"
+  },
+  "dependencies": {
+    "sql.js": "^1.12.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.0",
+    "@types/sql.js": "^1.4.9",
+    "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^3.2.2",
+    "esbuild": "^0.24.2",
+    "typescript": "^5.7.2"
+  }
+}
