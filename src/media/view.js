@@ -49,6 +49,55 @@
     return Math.max(0, Math.min(100, n));
   }
 
+  function fmtDeltaPct(n) {
+    const v = typeof n === 'number' && Number.isFinite(n) ? n : 0;
+    const rounded = Math.round(v * 10) / 10;
+    return `+${rounded}%`;
+  }
+
+  function fmtSinceLabel(iso, partial, kind) {
+    if (!iso) return '';
+    try {
+      const d = new Date(iso);
+      if (Number.isNaN(d.getTime())) return '';
+      const agoMs = Date.now() - d.getTime();
+      const mins = Math.max(0, Math.round(agoMs / 60000));
+      if (kind === 'hour' && partial) {
+        if (mins < 60) return `since ${mins}m ago`;
+        return 'since session start';
+      }
+      if (kind === 'session') {
+        return `since ${d.toLocaleTimeString(undefined, {
+          hour: '2-digit',
+          minute: '2-digit',
+        })}`;
+      }
+      return partial ? 'partial hour' : 'rolling 1h';
+    } catch {
+      return '';
+    }
+  }
+
+  function renderWindowRow(label, w, kind) {
+    if (!w) return '';
+    const since = fmtSinceLabel(w.since, w.partial, kind);
+    const sinceHtml = since
+      ? `<span class="window-since">${esc(since)}</span>`
+      : '';
+    return (
+      `<div class="window-row">` +
+      `<div class="window-label-col">` +
+      `<span class="window-label">${esc(label)}</span>` +
+      sinceHtml +
+      `</div>` +
+      `<div class="window-stats">` +
+      `<span class="window-stat window-stat-cm">CM ${esc(fmtDeltaPct(w.autoPercentDelta))}</span>` +
+      `<span class="window-stat window-stat-om">OM ${esc(fmtDeltaPct(w.apiPercentDelta))}</span>` +
+      `</div>` +
+      `</div>`
+    );
+  }
+
   function renderLoading() {
     app.innerHTML = '<div class="state state-loading">Loading plan usage…</div>';
   }
@@ -76,6 +125,21 @@
       ? `<div class="meta meta-stack"><span class="meta-label">Last refreshed</span><span class="meta-value">${esc(fmtWhen(data.refreshedAt))}</span></div>`
       : '';
 
+    const windows =
+      data.lastHour || data.session
+        ? `<hr class="divider" />` +
+          `<section class="section section-windows">` +
+          `<div class="section-head">` +
+          `<h2 class="section-title">Windows</h2>` +
+          `</div>` +
+          `<p class="subtitle">Account usage while this extension has been sampling</p>` +
+          `<div class="windows">` +
+          renderWindowRow('Last hour', data.lastHour, 'hour') +
+          renderWindowRow('IDE session', data.session, 'session') +
+          `</div>` +
+          `</section>`
+        : '';
+
     app.innerHTML =
       `<div class="header">` +
       `<h1>Included in ${plan}</h1>` +
@@ -99,6 +163,7 @@
       `<p class="subtitle">Third-party API models</p>` +
       `<progress class="bar bar-other" max="100" value="${api}">${esc(fmtPercent(api))}</progress>` +
       `</section>` +
+      windows +
       `<hr class="divider" />` +
       `<div class="footer">` +
       cycle +

@@ -6,6 +6,7 @@ import { clearAuthCache, resolveAuth } from './auth';
 import { CursorApiError, fetchUsageSnapshot } from './api';
 import { UsageViewProvider } from './usageViewProvider';
 import type { UsageSnapshot } from './types';
+import { UsageWindowTracker } from './usageWindows';
 
 /** Hard floor between API calls (except force). */
 const MIN_REFRESH_GAP_MS = 12_000;
@@ -29,6 +30,7 @@ let lastSuccessAt = 0;
 let lastActivityAt = 0;
 let lastStatusKey = '';
 let windowFocused = true;
+const windowTracker = new UsageWindowTracker();
 
 export function activate(context: vscode.ExtensionContext): void {
   const provider = new UsageViewProvider(context.extensionUri);
@@ -81,7 +83,8 @@ export function activate(context: vscode.ExtensionContext): void {
     try {
       let auth = await resolveAuth(context.extensionPath);
       try {
-        const snapshot = await fetchUsageSnapshot(auth);
+        const raw = await fetchUsageSnapshot(auth);
+        const snapshot = windowTracker.attachWindows(raw);
         lastSuccessAt = Date.now();
         const changed = provider.showUsage(snapshot, { force: !opts.silent });
         if (changed || !opts.silent) {
@@ -91,7 +94,8 @@ export function activate(context: vscode.ExtensionContext): void {
         if (err instanceof CursorApiError && err.status === 401) {
           clearAuthCache();
           auth = await resolveAuth(context.extensionPath, { force: true });
-          const snapshot = await fetchUsageSnapshot(auth);
+          const raw = await fetchUsageSnapshot(auth);
+          const snapshot = windowTracker.attachWindows(raw);
           lastSuccessAt = Date.now();
           provider.showUsage(snapshot, { force: true });
           updateStatusBar(statusBar, snapshot);
@@ -287,19 +291,46 @@ function watchAiTrackingDb(onActivity: () => void): vscode.Disposable {
   };
 }
 
+function fmtWindowLine(
+  label: string,
+  w: UsageSnapshot['lastHour'] | UsageSnapshot['session']
+): string {
+  if (!w) {
+    return '';
+  }
+  const partial = w.partial ? ' (partial)' : '';
+  return `${label}${partial}: CM +${w.autoPercentDelta}% · OM +${w.apiPercentDelta}%`;
+}
+
 function updateStatusBar(
   item: vscode.StatusBarItem,
   snapshot: UsageSnapshot
 ): void {
   const cm = Math.round(snapshot.autoPercentUsed);
   const om = Math.round(snapshot.apiPercentUsed);
-  const key = `${snapshot.planName}|${cm}|${om}`;
+  const hour = snapshot.lastHour;
+  const sess = snapshot.session;
+  const key = [
+    snapshot.planName,
+    cm,
+    om,
+    hour?.autoPercentDelta,
+    hour?.apiPercentDelta,
+    sess?.autoPercentDelta,
+    sess?.apiPercentDelta,
+  ].join('|');
   if (key === lastStatusKey) {
     return;
   }
   lastStatusKey = key;
   item.text = `$(dashboard) CM ${cm}% · OM ${om}%`;
-  item.tooltip = `Cursor Plan Usage — ${snapshot.planName}\nCursor Models ${cm}% · Other Models ${om}%`;
+  const lines = [
+    `Cursor Plan Usage — ${snapshot.planName}`,
+    `Cursor Models ${cm}% · Other Models ${om}%`,
+    fmtWindowLine('Last hour', hour),
+    fmtWindowLine('IDE session', sess),
+  ].filter(Boolean);
+  item.tooltip = lines.join('\n');
 }
 
 export function deactivate(): void {

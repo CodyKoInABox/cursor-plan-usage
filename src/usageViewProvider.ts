@@ -144,6 +144,24 @@ export class UsageViewProvider implements vscode.WebviewViewProvider {
   }
 }
 
+function sameWindow(
+  a: UsageSnapshot['lastHour'],
+  b: UsageSnapshot['lastHour']
+): boolean {
+  if (!a && !b) {
+    return true;
+  }
+  if (!a || !b) {
+    return false;
+  }
+  return (
+    a.autoPercentDelta === b.autoPercentDelta &&
+    a.apiPercentDelta === b.apiPercentDelta &&
+    a.partial === b.partial &&
+    a.since === b.since
+  );
+}
+
 function sameUsage(a: UsageSnapshot | undefined, b: UsageSnapshot): boolean {
   if (!a) {
     return false;
@@ -151,9 +169,12 @@ function sameUsage(a: UsageSnapshot | undefined, b: UsageSnapshot): boolean {
   return (
     a.autoPercentUsed === b.autoPercentUsed &&
     a.apiPercentUsed === b.apiPercentUsed &&
+    a.includedSpendCents === b.includedSpendCents &&
     a.planName === b.planName &&
     a.email === b.email &&
-    a.billingCycleEnd === b.billingCycleEnd
+    a.billingCycleEnd === b.billingCycleEnd &&
+    sameWindow(a.lastHour, b.lastHour) &&
+    sameWindow(a.session, b.session)
   );
 }
 

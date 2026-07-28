@@ -110,12 +110,24 @@ export async function fetchUsageSnapshot(auth: AuthResult): Promise<UsageSnapsho
     planName?.trim() ||
     (membership ? titleCasePlan(membership) : 'Pro');
 
+  const plan = usage.planUsage;
+  const includedSpend =
+    typeof plan?.includedSpend === 'number' && Number.isFinite(plan.includedSpend)
+      ? plan.includedSpend
+      : undefined;
+  const includedLimit =
+    typeof plan?.limit === 'number' && Number.isFinite(plan.limit)
+      ? plan.limit
+      : undefined;
+
   return {
     planName: displayPlan,
     membershipType: membership,
     email: auth.email,
-    autoPercentUsed: pickPercent(usage.planUsage?.autoPercentUsed),
-    apiPercentUsed: pickPercent(usage.planUsage?.apiPercentUsed),
+    autoPercentUsed: pickPercent(plan?.autoPercentUsed),
+    apiPercentUsed: pickPercent(plan?.apiPercentUsed),
+    includedSpendCents: includedSpend,
+    includedLimitCents: includedLimit,
     billingCycleStart: usage.billingCycleStart,
     billingCycleEnd: usage.billingCycleEnd,
     refreshedAt: new Date().toISOString(),
