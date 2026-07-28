@@ -13,6 +13,16 @@ function apiBaseUrl(): string {
     .replace(/\/$/, '');
 }
 
+export class CursorApiError extends Error {
+  constructor(
+    message: string,
+    readonly status: number
+  ) {
+    super(message);
+    this.name = 'CursorApiError';
+  }
+}
+
 async function postJson<T>(
   path: string,
   accessToken: string,
@@ -36,8 +46,9 @@ async function postJson<T>(
     } catch {
       // ignore
     }
-    throw new Error(
-      `Cursor API ${path} failed (${res.status}${detail ? `: ${detail}` : ''})`
+    throw new CursorApiError(
+      `Cursor API ${path} failed (${res.status}${detail ? `: ${detail}` : ''})`,
+      res.status
     );
   }
 

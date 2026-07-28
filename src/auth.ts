@@ -11,6 +11,14 @@ const EMAIL_KEY = 'cursorAuth/cachedEmail';
 
 let sqlPromise: Promise<SqlJsStatic> | undefined;
 
+/** In-memory only — never written to disk by this extension. */
+let cachedAuth: { value: AuthResult; expiresAt: number } | undefined;
+const AUTH_CACHE_TTL_MS = 10 * 60 * 1000;
+
+export function clearAuthCache(): void {
+  cachedAuth = undefined;
+}
+
 function getSql(extensionPath: string): Promise<SqlJsStatic> {
   if (!sqlPromise) {
     const wasmPath = path.join(extensionPath, 'out', 'sql-wasm.wasm');
@@ -130,15 +138,24 @@ async function readFromStateDb(extensionPath: string): Promise<AuthResult | unde
 /**
  * Resolve a bearer access token.
  * Prefer Cursor's local state DB; fall back to `cursorPlanUsage.sessionToken`.
- * Token is never persisted by this extension.
+ * Token is never persisted by this extension (memory cache only).
  */
-export async function resolveAuth(extensionPath: string): Promise<AuthResult> {
+export async function resolveAuth(
+  extensionPath: string,
+  opts?: { force?: boolean }
+): Promise<AuthResult> {
+  const now = Date.now();
+  if (!opts?.force && cachedAuth && cachedAuth.expiresAt > now) {
+    return cachedAuth.value;
+  }
+
   const config = vscode.workspace.getConfiguration('cursorPlanUsage');
   const override = normalizeSessionToken(config.get<string>('sessionToken', ''));
 
   try {
     const fromDb = await readFromStateDb(extensionPath);
     if (fromDb?.accessToken) {
+      cachedAuth = { value: fromDb, expiresAt: now + AUTH_CACHE_TTL_MS };
       return fromDb;
     }
   } catch (err) {
@@ -149,7 +166,9 @@ export async function resolveAuth(extensionPath: string): Promise<AuthResult> {
   }
 
   if (override) {
-    return { accessToken: override, source: 'setting' };
+    const value: AuthResult = { accessToken: override, source: 'setting' };
+    cachedAuth = { value, expiresAt: now + AUTH_CACHE_TTL_MS };
+    return value;
   }
 
   throw new Error(

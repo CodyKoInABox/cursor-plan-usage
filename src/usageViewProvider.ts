@@ -14,12 +14,23 @@ export class UsageViewProvider implements vscode.WebviewViewProvider {
   private view?: vscode.WebviewView;
   private lastSnapshot?: UsageSnapshot;
   private lastError?: string;
-  private refreshHandler?: () => Promise<void>;
+  private refreshHandler?: (opts?: { silent?: boolean }) => Promise<void>;
+  private visibilityHandler?: (visible: boolean) => void;
 
   constructor(private readonly extensionUri: vscode.Uri) {}
 
-  setRefreshHandler(handler: () => Promise<void>): void {
+  setRefreshHandler(
+    handler: (opts?: { silent?: boolean }) => Promise<void>
+  ): void {
     this.refreshHandler = handler;
+  }
+
+  setVisibilityHandler(handler: (visible: boolean) => void): void {
+    this.visibilityHandler = handler;
+  }
+
+  get visible(): boolean {
+    return this.view?.visible === true;
   }
 
   resolveWebviewView(
@@ -45,7 +56,7 @@ export class UsageViewProvider implements vscode.WebviewViewProvider {
           this.replayLastState();
         }
         if (msg.type === 'refresh' && this.refreshHandler) {
-          await this.refreshHandler();
+          await this.refreshHandler({ silent: false });
         }
       }
     });
@@ -54,20 +65,33 @@ export class UsageViewProvider implements vscode.WebviewViewProvider {
       if (webviewView.visible) {
         this.replayLastState();
       }
+      this.visibilityHandler?.(webviewView.visible);
     });
   }
 
   showLoading(): void {
+    // Don't wipe the UI on background refreshes if we already have content.
+    if (this.lastSnapshot || this.lastError) {
+      return;
+    }
     this.post({ type: 'loading' });
   }
 
-  showUsage(data: UsageSnapshot): void {
+  /** Returns false when usage metrics are unchanged (UI not rewritten). */
+  showUsage(data: UsageSnapshot, opts?: { force?: boolean }): boolean {
+    if (!opts?.force && sameUsage(this.lastSnapshot, data)) {
+      return false;
+    }
     this.lastSnapshot = data;
     this.lastError = undefined;
     this.post({ type: 'usageData', data });
+    return true;
   }
 
   showError(message: string): void {
+    if (this.lastError === message && !this.lastSnapshot) {
+      return;
+    }
     this.lastError = message;
     this.post({ type: 'error', message });
   }
@@ -118,6 +142,19 @@ export class UsageViewProvider implements vscode.WebviewViewProvider {
 </body>
 </html>`;
   }
+}
+
+function sameUsage(a: UsageSnapshot | undefined, b: UsageSnapshot): boolean {
+  if (!a) {
+    return false;
+  }
+  return (
+    a.autoPercentUsed === b.autoPercentUsed &&
+    a.apiPercentUsed === b.apiPercentUsed &&
+    a.planName === b.planName &&
+    a.email === b.email &&
+    a.billingCycleEnd === b.billingCycleEnd
+  );
 }
 
 function getNonce(): string {

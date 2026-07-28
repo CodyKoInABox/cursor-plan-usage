@@ -79,7 +79,7 @@
       `<span class="percent">${esc(fmtPercent(auto))} used</span>` +
       `</div>` +
       `<p class="subtitle">Includes Cursor Grok 4.5 and Composer 2.5</p>` +
-      `<div class="bar bar-cursor" role="progressbar" aria-valuenow="${auto}" aria-valuemin="0" aria-valuemax="100"><span style="width:${auto}%"></span></div>` +
+      `<progress class="bar bar-cursor" max="100" value="${auto}">${esc(fmtPercent(auto))}</progress>` +
       `<p class="note">${esc(CURSOR_NOTE)}</p>` +
       `</section>` +
       `<hr class="divider" />` +
@@ -89,7 +89,7 @@
       `<span class="percent">${esc(fmtPercent(api))} used</span>` +
       `</div>` +
       `<p class="subtitle">Third-party API models</p>` +
-      `<div class="bar bar-other" role="progressbar" aria-valuenow="${api}" aria-valuemin="0" aria-valuemax="100"><span style="width:${api}%"></span></div>` +
+      `<progress class="bar bar-other" max="100" value="${api}">${esc(fmtPercent(api))}</progress>` +
       `<p class="note">${esc(OTHER_NOTE)}</p>` +
       `</section>` +
       `<div class="footer">` +

@@ -1,7 +1,8 @@
 :root {
+  color-scheme: light dark;
   --bar-cursor: #3b82f6;
-  --bar-other: #6b7280;
-  --bar-track: color-mix(in srgb, var(--vscode-foreground) 12%, transparent);
+  --bar-other: #f59e0b;
+  --bar-track: color-mix(in srgb, var(--vscode-foreground) 18%, transparent);
   --muted: var(--vscode-descriptionForeground);
   --fg: var(--vscode-foreground);
   --border: var(--vscode-widget-border, color-mix(in srgb, var(--vscode-foreground) 18%, transparent));
@@ -99,26 +100,55 @@ body {
 }
 
 .bar {
+  display: block;
+  width: 100%;
   height: 8px;
+  border: 0;
   border-radius: 999px;
-  background: var(--bar-track);
   overflow: hidden;
+  background: var(--bar-track);
+  accent-color: var(--bar-cursor);
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
 }
 
-.bar > span {
-  display: block;
-  height: 100%;
-  width: 0%;
-  border-radius: inherit;
+.bar-cursor {
+  accent-color: var(--bar-cursor);
+}
+
+.bar-other {
+  accent-color: var(--bar-other);
+}
+
+.bar::-webkit-progress-bar {
+  background: var(--bar-track);
+  border-radius: 999px;
+}
+
+.bar::-webkit-progress-value {
+  border-radius: 999px;
   transition: width 0.35s ease;
 }
 
-.bar-cursor > span {
-  background: var(--bar-cursor);
+.bar-cursor::-webkit-progress-value {
+  background: linear-gradient(90deg, #2563eb, var(--bar-cursor));
 }
 
-.bar-other > span {
-  background: var(--bar-other);
+.bar-other::-webkit-progress-value {
+  background: linear-gradient(90deg, #d97706, var(--bar-other));
+}
+
+.bar::-moz-progress-bar {
+  border-radius: 999px;
+}
+
+.bar-cursor::-moz-progress-bar {
+  background: linear-gradient(90deg, #2563eb, var(--bar-cursor));
+}
+
+.bar-other::-moz-progress-bar {
+  background: linear-gradient(90deg, #d97706, var(--bar-other));
 }
 
 .divider {

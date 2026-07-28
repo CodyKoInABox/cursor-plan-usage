@@ -71,9 +71,14 @@
       "properties": {
         "cursorPlanUsage.pollIntervalSeconds": {
           "type": "number",
-          "default": 120,
+          "default": 0,
           "minimum": 0,
-          "description": "Auto-refresh interval in seconds. Set to 0 to disable polling."
+          "description": "Idle poll interval in seconds while Cursor is focused. 0 = adaptive (30s for 2 min after AI activity, then 3 min). Set higher to override the idle interval. Polling pauses while unfocused; AI activity and focus still refresh."
+        },
+        "cursorPlanUsage.refreshOnAiActivity": {
+          "type": "boolean",
+          "default": true,
+          "description": "Near-real-time refresh when Cursor's local AI tracking DB updates (Agent / AI edits)."
         },
         "cursorPlanUsage.sessionToken": {
           "type": "string",
