@@ -8,7 +8,7 @@
   --border: var(--vscode-widget-border, color-mix(in srgb, var(--vscode-foreground) 18%, transparent));
   --danger: var(--vscode-errorForeground);
   --font: var(--vscode-font-family);
-  --font-size: var(--vscode-font-size);
+  --font-size: calc(var(--vscode-font-size) * 1.15);
 }
 
 * {
