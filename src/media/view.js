@@ -83,7 +83,7 @@
     const over = projected != null && projected >= 100;
     const projHtml =
       projected != null
-        ? `<p class="projection${over ? ' projection-over' : ''}">` +
+        ? `<p class="projection${over ? ' projection-over' : ''}" tabindex="0" data-tip="Estimation based on current usage and cycle progress">` +
           `~${esc(fmtPercent(projected))} by cycle end` +
           `</p>`
         : '';
@@ -170,13 +170,17 @@
     bindRefresh();
   }
 
+  function planTitle(name) {
+    const raw = String(name || 'Pro').trim() || 'Pro';
+    const withPlan = /\bplan\b/i.test(raw) ? raw : `${raw} Plan`;
+    if (/\busage\b/i.test(withPlan)) return withPlan;
+    return `${withPlan} usage`;
+  }
+
   function renderUsage(data) {
     const auto = clampPct(data.autoPercentUsed);
     const api = clampPct(data.apiPercentUsed);
-    const plan = esc(data.planName || 'Pro');
-    const email = data.email
-      ? `<div class="email">${esc(data.email)}</div>`
-      : '';
+    const plan = esc(planTitle(data.planName));
     const cyclePct = cycleProgressPct(data.billingCycleStart, data.billingCycleEnd);
     const cycleBar =
       cyclePct != null
@@ -212,8 +216,7 @@
 
     app.innerHTML =
       `<div class="header">` +
-      `<h1>Included in ${plan}</h1>` +
-      email +
+      `<h1>${plan}</h1>` +
       `</div>` +
       `<hr class="divider" />` +
       renderUsageSection(

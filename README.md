@@ -1,69 +1,32 @@
 # Cursor Plan Usage
 
-Dockable Cursor/VS Code sidebar that mirrors **Settings → Plan & Usage**:
+**See your Cursor plan usage without leaving the editor.**
 
-- **Cursor Models** — `planUsage.autoPercentUsed`
-- **Other Models** — `planUsage.apiPercentUsed`
+Cursor Plan Usage adds a dockable sidebar and a compact status bar chip so you always know how much of your plan you’ve used — Cursor Models and Other Models — right next to your work.
 
-Plus plan label, billing-cycle end, and a compact status-bar chip (`CM n% · OM n%`).
+No more digging through **Settings → Plan & Usage** mid-session. Glance at the bar, open the panel when you want the full picture, and keep coding.
 
-## Install (VSIX)
+## What you get
 
-```bash
-npm install
-npm run compile
-npm run package
-```
+- **Live usage at a glance** — Cursor Models and Other Models percentages in a dedicated Plan Usage sidebar
+- **Status bar chip** — `CM n% · OM n%` so usage stays visible while you work
+- **Billing cycle context** — cycle progress, when the period ends, and a simple projection toward cycle end
+- **Session awareness** — last-hour and IDE-session usage deltas while the extension is sampling
+- **Stays out of your way** — refreshes when you focus Cursor or when AI activity kicks in; pause-friendly when the window is unfocused
+- **Zero setup for most people** — signs in using your existing Cursor session automatically
 
-In Cursor: **Extensions: Install from VSIX…** → pick the generated `.vsix`.
+## Install
 
-## Auth
+Coming soon on the Cursor / VS Code Marketplace.
 
-By default the extension **auto-reads** your local Cursor session (never stored by the extension):
+<!-- Marketplace link will go here -->
 
-| OS | Path |
-|---|---|
-| Windows | `%APPDATA%\Cursor\User\globalStorage\state.vscdb` |
-| macOS | `~/Library/Application Support/Cursor/User/globalStorage/state.vscdb` |
-| Linux | `~/.config/Cursor/User/globalStorage/state.vscdb` |
+## Open source
 
-It copies the DB then reads `cursorAuth/accessToken` via `sql.js` (WASM).
-
-**Fallback:** set `cursorPlanUsage.sessionToken` to a `WorkosCursorSessionToken` or raw JWT if auto-detect fails.
-
-## Settings
-
-| Setting | Default | Notes |
-|---|---|---|
-| `cursorPlanUsage.pollIntervalSeconds` | `120` | `0` disables polling |
-| `cursorPlanUsage.sessionToken` | `""` | Optional override |
-| `cursorPlanUsage.apiBaseUrl` | `https://api2.cursor.sh` | Dashboard RPC host |
-
-## Commands
-
-- **Plan Usage: Focus** — open the sidebar
-- **Plan Usage: Refresh** — fetch now (also on the view title bar)
-
-## Unofficial API disclaimer
-
-Usage is loaded from Cursor’s undocumented Connect-RPC dashboard endpoints:
-
-- `POST …/aiserver.v1.DashboardService/GetCurrentPeriodUsage`
-- `POST …/aiserver.v1.DashboardService/GetPlanInfo`
-
-These can change or break without notice. The UI surfaces errors and a Refresh action when that happens.
-
-Tokens are only sent to `cursorPlanUsage.apiBaseUrl`. The extension never logs the token or full DB path in the webview.
-
-## Dev
-
-```bash
-npm install
-npm run watch
-```
-
-Then **Run Extension** from `.vscode/launch.json` (Extension Development Host).
+This is an open source project. Bug reports and feature ideas are welcome via [GitHub Issues](https://github.com/CodyKoInABox/cursor-plan-usage/issues). Pull requests are welcome too.
 
 ## License
 
-MIT
+[MIT](LICENSE)
+
+Created by [CodyKoInABox](https://github.com/CodyKoInABox)

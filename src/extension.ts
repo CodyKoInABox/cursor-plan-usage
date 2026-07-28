@@ -291,46 +291,23 @@ function watchAiTrackingDb(onActivity: () => void): vscode.Disposable {
   };
 }
 
-function fmtWindowLine(
-  label: string,
-  w: UsageSnapshot['lastHour'] | UsageSnapshot['session']
-): string {
-  if (!w) {
-    return '';
-  }
-  const partial = w.partial ? ' (partial)' : '';
-  return `${label}${partial}: CM +${w.autoPercentDelta}% · OM +${w.apiPercentDelta}%`;
-}
-
 function updateStatusBar(
   item: vscode.StatusBarItem,
   snapshot: UsageSnapshot
 ): void {
   const cm = Math.round(snapshot.autoPercentUsed);
   const om = Math.round(snapshot.apiPercentUsed);
-  const hour = snapshot.lastHour;
-  const sess = snapshot.session;
-  const key = [
-    snapshot.planName,
-    cm,
-    om,
-    hour?.autoPercentDelta,
-    hour?.apiPercentDelta,
-    sess?.autoPercentDelta,
-    sess?.apiPercentDelta,
-  ].join('|');
+  const key = [snapshot.planName, cm, om].join('|');
   if (key === lastStatusKey) {
     return;
   }
   lastStatusKey = key;
   item.text = `$(dashboard) CM ${cm}% · OM ${om}%`;
-  const lines = [
+  item.tooltip = [
     `Cursor Plan Usage — ${snapshot.planName}`,
-    `Cursor Models ${cm}% · Other Models ${om}%`,
-    fmtWindowLine('Last hour', hour),
-    fmtWindowLine('IDE session', sess),
-  ].filter(Boolean);
-  item.tooltip = lines.join('\n');
+    `Cursor Models ${cm}%`,
+    `Other Models ${om}%`,
+  ].join('\n');
 }
 
 export function deactivate(): void {
