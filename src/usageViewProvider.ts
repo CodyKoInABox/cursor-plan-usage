@@ -172,6 +172,7 @@ function sameUsage(a: UsageSnapshot | undefined, b: UsageSnapshot): boolean {
     a.includedSpendCents === b.includedSpendCents &&
     a.planName === b.planName &&
     a.email === b.email &&
+    a.billingCycleStart === b.billingCycleStart &&
     a.billingCycleEnd === b.billingCycleEnd &&
     sameWindow(a.lastHour, b.lastHour) &&
     sameWindow(a.session, b.session)

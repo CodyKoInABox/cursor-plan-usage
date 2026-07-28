@@ -15,8 +15,8 @@
     return `${Math.round(v * 10) / 10}%`;
   }
 
-  function fmtWhen(value) {
-    if (value == null || value === '') return '';
+  function parseWhen(value) {
+    if (value == null || value === '') return null;
     try {
       let d;
       if (typeof value === 'number') {
@@ -31,22 +31,81 @@
           d = new Date(s);
         }
       }
-      if (Number.isNaN(d.getTime())) return String(value);
-      return d.toLocaleString(undefined, {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      });
+      return Number.isNaN(d.getTime()) ? null : d;
     } catch {
-      return String(value);
+      return null;
     }
+  }
+
+  function fmtWhen(value) {
+    const d = parseWhen(value);
+    if (!d) return value == null || value === '' ? '' : String(value);
+    return d.toLocaleString(undefined, {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  }
+
+  /** 0–100 how far through [start, end]; null if dates missing/invalid. */
+  function cycleProgressPct(start, end) {
+    const s = parseWhen(start);
+    const e = parseWhen(end);
+    if (!s || !e) return null;
+    const total = e.getTime() - s.getTime();
+    if (total <= 0) return null;
+    return clampPct(((Date.now() - s.getTime()) / total) * 100);
+  }
+
+  /**
+   * Linear extrapolation: used / cycleElapsed → expected % at cycle end.
+   * Returns null if cycle progress is unknown or too early (<1%) to trust.
+   * Value may exceed 100.
+   */
+  function projectEndPct(usedPct, cyclePct) {
+    if (cyclePct == null || cyclePct < 1) return null;
+    const used = typeof usedPct === 'number' && Number.isFinite(usedPct) ? usedPct : 0;
+    const projected = (used / cyclePct) * 100;
+    if (!Number.isFinite(projected)) return null;
+    return Math.max(0, projected);
   }
 
   function clampPct(n) {
     if (typeof n !== 'number' || !Number.isFinite(n)) return 0;
     return Math.max(0, Math.min(100, n));
+  }
+
+  function renderUsageSection(title, subtitle, used, barClass, cyclePct) {
+    const projected = projectEndPct(used, cyclePct);
+    const projClamp = projected != null ? clampPct(projected) : null;
+    const over = projected != null && projected >= 100;
+    const projHtml =
+      projected != null
+        ? `<p class="projection${over ? ' projection-over' : ''}">` +
+          `~${esc(fmtPercent(projected))} by cycle end` +
+          `</p>`
+        : '';
+    const barHtml =
+      projClamp != null
+        ? `<div class="bar-stack" role="img" aria-label="${esc(title)}: ${esc(fmtPercent(used))} used, ~${esc(fmtPercent(projected))} projected">` +
+          `<div class="bar-ghost bar-ghost-${esc(barClass)}" style="width:${projClamp}%"></div>` +
+          `<progress class="bar bar-${esc(barClass)}" max="100" value="${used}">${esc(fmtPercent(used))}</progress>` +
+          `</div>`
+        : `<progress class="bar bar-${esc(barClass)}" max="100" value="${used}">${esc(fmtPercent(used))}</progress>`;
+
+    return (
+      `<section class="section">` +
+      `<div class="section-head">` +
+      `<h2 class="section-title">${esc(title)}</h2>` +
+      `<span class="percent">${esc(fmtPercent(used))} used</span>` +
+      `</div>` +
+      `<p class="subtitle">${esc(subtitle)}</p>` +
+      barHtml +
+      projHtml +
+      `</section>`
+    );
   }
 
   function fmtDeltaPct(n) {
@@ -118,8 +177,19 @@
     const email = data.email
       ? `<div class="email">${esc(data.email)}</div>`
       : '';
+    const cyclePct = cycleProgressPct(data.billingCycleStart, data.billingCycleEnd);
+    const cycleBar =
+      cyclePct != null
+        ? `<div class="cycle-progress">` +
+          `<div class="cycle-progress-head">` +
+          `<span class="cycle-progress-label">Cycle progress</span>` +
+          `<span class="cycle-progress-pct">${esc(fmtPercent(cyclePct))}</span>` +
+          `</div>` +
+          `<progress class="bar bar-cycle" max="100" value="${cyclePct}" aria-label="Billing cycle progress">${esc(fmtPercent(cyclePct))}</progress>` +
+          `</div>`
+        : '';
     const cycle = data.billingCycleEnd
-      ? `<div class="meta meta-stack"><span class="meta-label">Billing cycle ends</span><span class="meta-value">${esc(fmtWhen(data.billingCycleEnd))}</span></div>`
+      ? `<div class="meta meta-stack"><span class="meta-label">Billing cycle ends</span><span class="meta-value">${esc(fmtWhen(data.billingCycleEnd))}</span>${cycleBar}</div>`
       : '';
     const refreshed = data.refreshedAt
       ? `<div class="meta meta-stack"><span class="meta-label">Last refreshed</span><span class="meta-value">${esc(fmtWhen(data.refreshedAt))}</span></div>`
@@ -146,23 +216,21 @@
       email +
       `</div>` +
       `<hr class="divider" />` +
-      `<section class="section">` +
-      `<div class="section-head">` +
-      `<h2 class="section-title">Cursor Models</h2>` +
-      `<span class="percent">${esc(fmtPercent(auto))} used</span>` +
-      `</div>` +
-      `<p class="subtitle">Auto mode and Cursor's models</p>` +
-      `<progress class="bar bar-cursor" max="100" value="${auto}">${esc(fmtPercent(auto))}</progress>` +
-      `</section>` +
+      renderUsageSection(
+        'Cursor Models',
+        "Auto mode and Cursor's models",
+        auto,
+        'cursor',
+        cyclePct
+      ) +
       `<hr class="divider" />` +
-      `<section class="section">` +
-      `<div class="section-head">` +
-      `<h2 class="section-title">Other Models</h2>` +
-      `<span class="percent">${esc(fmtPercent(api))} used</span>` +
-      `</div>` +
-      `<p class="subtitle">Third-party API models</p>` +
-      `<progress class="bar bar-other" max="100" value="${api}">${esc(fmtPercent(api))}</progress>` +
-      `</section>` +
+      renderUsageSection(
+        'Other Models',
+        'Third-party API models',
+        api,
+        'other',
+        cyclePct
+      ) +
       windows +
       `<hr class="divider" />` +
       `<div class="footer">` +
