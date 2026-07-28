@@ -9,6 +9,9 @@ const ACCESS_TOKEN_KEY = 'cursorAuth/accessToken';
 const MEMBERSHIP_KEY = 'cursorAuth/stripeMembershipType';
 const EMAIL_KEY = 'cursorAuth/cachedEmail';
 
+/** vscode.SecretStorage key for optional session-token override. */
+export const SESSION_TOKEN_SECRET_KEY = 'cursorPlanUsage.sessionToken';
+
 let sqlPromise: Promise<SqlJsStatic> | undefined;
 
 /** In-memory only — never written to disk by this extension. */
@@ -135,13 +138,83 @@ async function readFromStateDb(extensionPath: string): Promise<AuthResult | unde
   }
 }
 
+async function readSecretToken(
+  secrets: vscode.SecretStorage
+): Promise<string | undefined> {
+  const raw = await secrets.get(SESSION_TOKEN_SECRET_KEY);
+  if (!raw) {
+    return undefined;
+  }
+  const normalized = normalizeSessionToken(raw);
+  return normalized || undefined;
+}
+
+/**
+ * One-time migrate leftover `cursorPlanUsage.sessionToken` settings into SecretStorage,
+ * then clear the setting from Global/Workspace so it is no longer stored in plaintext.
+ */
+export async function migrateSessionTokenSetting(
+  context: vscode.ExtensionContext
+): Promise<void> {
+  const config = vscode.workspace.getConfiguration('cursorPlanUsage');
+  const inspect = config.inspect<string>('sessionToken');
+  const candidates = [
+    inspect?.workspaceFolderValue,
+    inspect?.workspaceValue,
+    inspect?.globalValue,
+  ];
+  let migrated = '';
+  for (const value of candidates) {
+    if (typeof value === 'string' && value.trim()) {
+      migrated = normalizeSessionToken(value);
+      if (migrated) {
+        break;
+      }
+    }
+  }
+
+  if (migrated) {
+    const existing = await context.secrets.get(SESSION_TOKEN_SECRET_KEY);
+    if (!existing) {
+      await context.secrets.store(SESSION_TOKEN_SECRET_KEY, migrated);
+    }
+  }
+
+  // Clear leftover plaintext setting regardless of whether SecretStorage already had a value.
+  if (
+    inspect?.globalValue !== undefined ||
+    inspect?.workspaceValue !== undefined ||
+    inspect?.workspaceFolderValue !== undefined
+  ) {
+    try {
+      await config.update('sessionToken', undefined, vscode.ConfigurationTarget.Global);
+    } catch {
+      // ignore
+    }
+    try {
+      await config.update('sessionToken', undefined, vscode.ConfigurationTarget.Workspace);
+    } catch {
+      // ignore
+    }
+    try {
+      await config.update(
+        'sessionToken',
+        undefined,
+        vscode.ConfigurationTarget.WorkspaceFolder
+      );
+    } catch {
+      // ignore
+    }
+  }
+}
+
 /**
  * Resolve a bearer access token.
- * Prefer Cursor's local state DB; fall back to `cursorPlanUsage.sessionToken`.
- * Token is never persisted by this extension (memory cache only).
+ * Precedence: SecretStorage override (if set) → Cursor local state DB.
+ * Token is never written to disk by this extension (SecretStorage / memory only).
  */
 export async function resolveAuth(
-  extensionPath: string,
+  context: vscode.ExtensionContext,
   opts?: { force?: boolean }
 ): Promise<AuthResult> {
   const now = Date.now();
@@ -149,29 +222,44 @@ export async function resolveAuth(
     return cachedAuth.value;
   }
 
-  const config = vscode.workspace.getConfiguration('cursorPlanUsage');
-  const override = normalizeSessionToken(config.get<string>('sessionToken', ''));
+  const secretToken = await readSecretToken(context.secrets);
+  if (secretToken) {
+    const value: AuthResult = { accessToken: secretToken, source: 'secret' };
+    cachedAuth = { value, expiresAt: now + AUTH_CACHE_TTL_MS };
+    return value;
+  }
 
   try {
-    const fromDb = await readFromStateDb(extensionPath);
+    const fromDb = await readFromStateDb(context.extensionPath);
     if (fromDb?.accessToken) {
       cachedAuth = { value: fromDb, expiresAt: now + AUTH_CACHE_TTL_MS };
       return fromDb;
     }
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    if (!override) {
-      throw new Error(`Could not read Cursor session from local DB: ${msg}`);
-    }
-  }
-
-  if (override) {
-    const value: AuthResult = { accessToken: override, source: 'setting' };
-    cachedAuth = { value, expiresAt: now + AUTH_CACHE_TTL_MS };
-    return value;
+    throw new Error(`Could not read Cursor session from local DB: ${msg}`);
   }
 
   throw new Error(
-    'No Cursor access token found. Sign in to Cursor, or set cursorPlanUsage.sessionToken (WorkosCursorSessionToken / JWT).'
+    'No Cursor access token found. Sign in to Cursor, or run “Plan Usage: Set Session Token”.'
   );
+}
+
+export async function setSessionTokenSecret(
+  secrets: vscode.SecretStorage,
+  raw: string
+): Promise<void> {
+  const normalized = normalizeSessionToken(raw);
+  if (!normalized) {
+    throw new Error('Session token cannot be empty.');
+  }
+  await secrets.store(SESSION_TOKEN_SECRET_KEY, normalized);
+  clearAuthCache();
+}
+
+export async function clearSessionTokenSecret(
+  secrets: vscode.SecretStorage
+): Promise<void> {
+  await secrets.delete(SESSION_TOKEN_SECRET_KEY);
+  clearAuthCache();
 }

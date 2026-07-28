@@ -5,10 +5,15 @@
   "version": "0.1.0",
   "publisher": "CodyKoInABox",
   "license": "MIT",
+  "icon": "resources/icon.png",
   "repository": {
     "type": "git",
     "url": "https://github.com/CodyKoInABox/cursor-plan-usage.git"
   },
+  "bugs": {
+    "url": "https://github.com/CodyKoInABox/cursor-plan-usage/issues"
+  },
+  "homepage": "https://github.com/CodyKoInABox/cursor-plan-usage#readme",
   "engines": {
     "vscode": "^1.85.0"
   },
@@ -21,6 +26,17 @@
     "plan",
     "billing"
   ],
+  "extensionKind": [
+    "ui"
+  ],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": true
+    },
+    "virtualWorkspaces": {
+      "supported": true
+    }
+  },
   "activationEvents": [
     "onStartupFinished"
   ],
@@ -55,6 +71,16 @@
         "title": "Plan Usage: Refresh",
         "icon": "$(refresh)",
         "category": "Plan Usage"
+      },
+      {
+        "command": "cursorPlanUsage.setSessionToken",
+        "title": "Plan Usage: Set Session Token",
+        "category": "Plan Usage"
+      },
+      {
+        "command": "cursorPlanUsage.clearSessionToken",
+        "title": "Plan Usage: Clear Session Token",
+        "category": "Plan Usage"
       }
     ],
     "menus": {
@@ -79,11 +105,6 @@
           "type": "boolean",
           "default": true,
           "description": "Near-real-time refresh when Cursor's local AI tracking DB updates (Agent / AI edits)."
-        },
-        "cursorPlanUsage.sessionToken": {
-          "type": "string",
-          "default": "",
-          "description": "Optional WorkosCursorSessionToken or JWT override if auto-detect from Cursor's local DB fails."
         },
         "cursorPlanUsage.apiBaseUrl": {
           "type": "string",

@@ -2,7 +2,13 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { clearAuthCache, resolveAuth } from './auth';
+import {
+  clearAuthCache,
+  clearSessionTokenSecret,
+  migrateSessionTokenSetting,
+  resolveAuth,
+  setSessionTokenSecret,
+} from './auth';
 import { CursorApiError, fetchUsageSnapshot } from './api';
 import { UsageViewProvider } from './usageViewProvider';
 import type { UsageSnapshot } from './types';
@@ -81,7 +87,7 @@ export function activate(context: vscode.ExtensionContext): void {
     }
 
     try {
-      let auth = await resolveAuth(context.extensionPath);
+      let auth = await resolveAuth(context);
       try {
         const raw = await fetchUsageSnapshot(auth);
         const snapshot = windowTracker.attachWindows(raw);
@@ -93,7 +99,7 @@ export function activate(context: vscode.ExtensionContext): void {
       } catch (err) {
         if (err instanceof CursorApiError && err.status === 401) {
           clearAuthCache();
-          auth = await resolveAuth(context.extensionPath, { force: true });
+          auth = await resolveAuth(context, { force: true });
           const raw = await fetchUsageSnapshot(auth);
           const snapshot = windowTracker.attachWindows(raw);
           lastSuccessAt = Date.now();
@@ -209,6 +215,36 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('cursorPlanUsage.refresh', () =>
       requestRefresh('manual', { silent: false, force: true })
     ),
+    vscode.commands.registerCommand('cursorPlanUsage.setSessionToken', async () => {
+      const value = await vscode.window.showInputBox({
+        title: 'Plan Usage: Set Session Token',
+        prompt:
+          'Paste WorkosCursorSessionToken or JWT. Stored in SecretStorage (not settings.json). Overrides the local Cursor DB token while set.',
+        password: true,
+        ignoreFocusOut: true,
+        placeHolder: 'user_…::eyJ… or eyJ…',
+      });
+      if (value === undefined) {
+        return;
+      }
+      try {
+        await setSessionTokenSecret(context.secrets, value);
+        void vscode.window.showInformationMessage(
+          'Plan Usage session token saved to SecretStorage.'
+        );
+        requestRefresh('config', { force: true, silent: false });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        void vscode.window.showErrorMessage(message);
+      }
+    }),
+    vscode.commands.registerCommand('cursorPlanUsage.clearSessionToken', async () => {
+      await clearSessionTokenSecret(context.secrets);
+      void vscode.window.showInformationMessage(
+        'Plan Usage session token cleared. Falling back to Cursor local DB.'
+      );
+      requestRefresh('config', { force: true, silent: false });
+    }),
     vscode.window.onDidChangeWindowState((state) => {
       windowFocused = state.focused;
       if (state.focused) {
@@ -220,9 +256,6 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
     vscode.workspace.onDidChangeConfiguration((e) => {
       if (e.affectsConfiguration('cursorPlanUsage')) {
-        if (e.affectsConfiguration('cursorPlanUsage.sessionToken')) {
-          clearAuthCache();
-        }
         armPoll();
         requestRefresh('config', { force: true });
       }
@@ -239,7 +272,14 @@ export function activate(context: vscode.ExtensionContext): void {
     activityWatcher
   );
 
-  void runRefresh({ silent: false, force: true });
+  void (async () => {
+    try {
+      await migrateSessionTokenSetting(context);
+    } catch {
+      // migration is best-effort
+    }
+    void runRefresh({ silent: false, force: true });
+  })();
 }
 
 function scheduleDebounced(ms: number, fn: () => void): void {

@@ -123,7 +123,6 @@ export async function fetchUsageSnapshot(auth: AuthResult): Promise<UsageSnapsho
   return {
     planName: displayPlan,
     membershipType: membership,
-    email: auth.email,
     autoPercentUsed: pickPercent(plan?.autoPercentUsed),
     apiPercentUsed: pickPercent(plan?.apiPercentUsed),
     includedSpendCents: includedSpend,

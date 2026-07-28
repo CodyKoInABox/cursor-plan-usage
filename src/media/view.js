@@ -157,6 +157,37 @@
     );
   }
 
+  function fmtCents(cents) {
+    const n = typeof cents === 'number' && Number.isFinite(cents) ? cents : NaN;
+    if (!Number.isFinite(n)) return '';
+    const dollars = n / 100;
+    return dollars.toLocaleString(undefined, {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: dollars % 1 === 0 ? 0 : 2,
+      maximumFractionDigits: 2,
+    });
+  }
+
+  function renderIncludedSpend(data) {
+    const spend = data.includedSpendCents;
+    const limit = data.includedLimitCents;
+    if (
+      typeof spend !== 'number' ||
+      !Number.isFinite(spend) ||
+      typeof limit !== 'number' ||
+      !Number.isFinite(limit)
+    ) {
+      return '';
+    }
+    return (
+      `<div class="meta meta-stack">` +
+      `<span class="meta-label">Included spend</span>` +
+      `<span class="meta-value">${esc(fmtCents(spend))} / ${esc(fmtCents(limit))} included</span>` +
+      `</div>`
+    );
+  }
+
   function renderLoading() {
     app.innerHTML = '<div class="state state-loading">Loading plan usage…</div>';
   }
@@ -237,6 +268,7 @@
       windows +
       `<hr class="divider" />` +
       `<div class="footer">` +
+      renderIncludedSpend(data) +
       cycle +
       refreshed +
       `</div>`;

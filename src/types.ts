@@ -2,7 +2,6 @@
 export interface UsageSnapshot {
   planName: string;
   membershipType?: string;
-  email?: string;
   autoPercentUsed: number;
   apiPercentUsed: number;
   /** Included plan spend in cents (when API provides it). */
@@ -32,7 +31,7 @@ export interface AuthResult {
   accessToken: string;
   membershipType?: string;
   email?: string;
-  source: 'db' | 'setting';
+  source: 'db' | 'secret';
 }
 
 export interface PlanUsageBlock {

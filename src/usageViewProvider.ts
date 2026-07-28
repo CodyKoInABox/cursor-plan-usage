@@ -44,7 +44,6 @@ export class UsageViewProvider implements vscode.WebviewViewProvider {
       enableScripts: true,
       localResourceRoots: [
         vscode.Uri.joinPath(this.extensionUri, 'out', 'media'),
-        vscode.Uri.joinPath(this.extensionUri, 'src', 'media'),
       ],
     };
 
@@ -89,18 +88,19 @@ export class UsageViewProvider implements vscode.WebviewViewProvider {
   }
 
   showError(message: string): void {
-    if (this.lastError === message && !this.lastSnapshot) {
+    if (this.lastError === message) {
       return;
     }
+    // Keep lastSnapshot for optional future "stale data" UI, but lastError wins on replay.
     this.lastError = message;
     this.post({ type: 'error', message });
   }
 
   private replayLastState(): void {
-    if (this.lastSnapshot) {
-      this.post({ type: 'usageData', data: this.lastSnapshot });
-    } else if (this.lastError) {
+    if (this.lastError) {
       this.post({ type: 'error', message: this.lastError });
+    } else if (this.lastSnapshot) {
+      this.post({ type: 'usageData', data: this.lastSnapshot });
     } else {
       this.post({ type: 'loading' });
     }
@@ -170,8 +170,8 @@ function sameUsage(a: UsageSnapshot | undefined, b: UsageSnapshot): boolean {
     a.autoPercentUsed === b.autoPercentUsed &&
     a.apiPercentUsed === b.apiPercentUsed &&
     a.includedSpendCents === b.includedSpendCents &&
+    a.includedLimitCents === b.includedLimitCents &&
     a.planName === b.planName &&
-    a.email === b.email &&
     a.billingCycleStart === b.billingCycleStart &&
     a.billingCycleEnd === b.billingCycleEnd &&
     sameWindow(a.lastHour, b.lastHour) &&
