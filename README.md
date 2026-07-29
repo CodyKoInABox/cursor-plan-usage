@@ -17,6 +17,11 @@ Live **Cursor Models** and **Other Models** percentages in a dockable sidebar an
 - **Session deltas** — last-hour and IDE-session usage while the extension is sampling
 - **Smart refresh** — updates on focus and AI activity; pauses when Cursor is unfocused
 
+
+## UI Example
+<img width="374" height="808" alt="Screenshot_1509" src="https://github.com/user-attachments/assets/42b61e48-6113-4b0e-b246-ec3a56f383bf" />
+
+
 ## Cursor only
 
 This extension is built for **[Cursor](https://cursor.com)**, not plain VS Code. It reads Cursor’s local session data and talks to Cursor’s dashboard API. Install and run it inside Cursor.
