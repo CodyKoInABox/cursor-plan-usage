@@ -4,6 +4,10 @@
 
 Live **Cursor Models** and **Other Models** percentages in a dockable sidebar and status bar chip — so you always know where you stand in the billing cycle.
 
+#### You can easily install the extension through the Extensions tab inside Cursor:
+<img width="268" height="228" alt="image" src="https://github.com/user-attachments/assets/2e36d629-3784-4ecd-b4be-677fd1a1ce41" />
+
+
 [Install on Open VSX](https://open-vsx.org/extension/CodyKoInABox/cursor-plan-usage) · [Report an issue](https://github.com/CodyKoInABox/cursor-plan-usage/issues)
 
 ---
@@ -28,9 +32,14 @@ This extension is built for **[Cursor](https://cursor.com)**, not plain VS Code.
 
 ## Install
 
-**Recommended:** [Open VSX — CodyKoInABox/cursor-plan-usage](https://open-vsx.org/extension/CodyKoInABox/cursor-plan-usage)
+#### You can easily install the extension through the Extensions tab inside Cursor:
+<img width="268" height="228" alt="image" src="https://github.com/user-attachments/assets/2e36d629-3784-4ecd-b4be-677fd1a1ce41" />
 
-Or sideload a `.vsix` from a release / local `npm run package` build.
+
+Or via Open VSX: [Open VSX — CodyKoInABox/cursor-plan-usage](https://open-vsx.org/extension/CodyKoInABox/cursor-plan-usage)
+
+Or sideload a `.vsix` from a release.
+Or clone the repo and build locally with `npm run package`
 
 After install, open the **Plan Usage** icon in the activity bar, or run **Plan Usage: Focus** from the Command Palette.
 
