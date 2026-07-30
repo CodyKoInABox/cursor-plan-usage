@@ -387,6 +387,27 @@ code {
   font-size: 1.2rem;
 }
 
+.feedback {
+  border-top: 1px solid var(--line);
+}
+
+.feedback-inner {
+  max-width: 36rem;
+}
+
+.feedback-inner h2 {
+  margin: 0 0 0.45rem;
+  font-family: var(--font-display);
+  font-size: clamp(1.55rem, 3vw, 2rem);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+}
+
+.feedback-inner p {
+  margin: 0 0 1.35rem;
+  color: var(--muted);
+}
+
 .site-footer {
   max-width: var(--max);
   margin: 0 auto;

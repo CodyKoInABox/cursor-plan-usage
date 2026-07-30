@@ -57,12 +57,7 @@
             the billing cycle.
           </p>
           <div class="cta-row">
-            <a
-              class="btn btn-primary"
-              href="https://open-vsx.org/extension/CodyKoInABox/cursor-plan-usage"
-              rel="noopener noreferrer"
-              >Install on Open VSX</a
-            >
+            <a class="btn btn-primary" href="#install">Install in Cursor</a>
             <a
               class="btn btn-ghost"
               href="https://github.com/CodyKoInABox/cursor-plan-usage"
@@ -123,8 +118,8 @@
 
       <section class="section install" id="install">
         <div class="section-intro reveal">
-          <h2>Install</h2>
-          <p>Search in Cursor’s Extensions tab, or grab it from Open VSX.</p>
+          <h2>Install in Cursor</h2>
+          <p>Extensions tab → search → install. That’s it.</p>
         </div>
         <div class="install-body reveal">
           <img
@@ -136,45 +131,74 @@
           />
           <div class="install-copy">
             <ol>
-              <li>Open Extensions in Cursor</li>
-              <li>Search for <strong>Cursor Plan Usage</strong></li>
-              <li>Install, then open the Plan Usage icon in the activity bar</li>
+              <li>Open Extensions</li>
+              <li>Search <strong>Cursor Plan Usage</strong></li>
+              <li>Install</li>
             </ol>
             <p>
-              Or install via
+              Also on
               <a
                 href="https://open-vsx.org/extension/CodyKoInABox/cursor-plan-usage"
                 rel="noopener noreferrer"
                 >Open VSX</a
-              >
-              / sideload a
-              <a
-                href="https://github.com/CodyKoInABox/cursor-plan-usage/releases"
-                rel="noopener noreferrer"
-                >.vsix release</a
               >.
             </p>
           </div>
         </div>
       </section>
 
+      <section class="section feedback" id="feedback">
+        <div class="feedback-inner reveal">
+          <h2>Feedback</h2>
+          <p>Found a bug or have an idea? Open an issue on GitHub.</p>
+          <div class="cta-row">
+            <a
+              class="btn btn-primary"
+              href="https://github.com/CodyKoInABox/cursor-plan-usage/issues/new?labels=bug&title=Bug%3A%20"
+              rel="noopener noreferrer"
+              >Report a bug</a
+            >
+            <a
+              class="btn btn-ghost"
+              href="https://github.com/CodyKoInABox/cursor-plan-usage/issues/new?labels=enhancement&title=Feature%3A%20"
+              rel="noopener noreferrer"
+              >Suggest a feature</a
+            >
+          </div>
+        </div>
+      </section>
+
       <section class="section notes" id="notes">
         <div class="note reveal">
-          <h2>Cursor only</h2>
+          <h2>Open source</h2>
           <p>
-            Built for
-            <a href="https://cursor.com" rel="noopener noreferrer">Cursor</a>,
-            not plain VS Code. It reads Cursor’s local session data and talks to
-            Cursor’s dashboard API.
+            MIT licensed and fully readable on
+            <a
+              href="https://github.com/CodyKoInABox/cursor-plan-usage"
+              rel="noopener noreferrer"
+              >GitHub</a
+            >. Audit it, fork it, or send a pull request.
           </p>
         </div>
         <div class="note reveal">
           <h2>Privacy</h2>
           <p>
-            Your access token stays in memory (or SecretStorage if you set an
-            override). It is never written to disk by this extension. No
-            telemetry. The only network call is the usage request to Cursor’s
-            API.
+            Your access token stays in your machine.
+            <strong>No telemetry.</strong> No third-party API calls.
+          </p>
+        </div>
+        <div class="note reveal">
+          <h2>Lightweight</h2>
+          <p>
+            Built to stay out of your way. Smart refresh pauses when Cursor is
+            unfocused and avoids unnecessary background work.
+          </p>
+        </div>
+        <div class="note reveal">
+          <h2>Native to Cursor</h2>
+          <p>
+            Lives in the sidebar and status bar, using Cursor’s existing UI
+            instead of opening another dashboard.
           </p>
         </div>
       </section>
@@ -188,12 +212,6 @@
         · Created by
         <a href="https://github.com/CodyKoInABox" rel="noopener noreferrer"
           >CodyKoInABox</a
-        >
-        ·
-        <a
-          href="https://github.com/CodyKoInABox/cursor-plan-usage/issues"
-          rel="noopener noreferrer"
-          >Report an issue</a
         >
       </p>
     </footer>
