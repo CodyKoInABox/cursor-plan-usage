@@ -169,6 +169,7 @@ function sameWindow(
     a.autoPercentDelta === b.autoPercentDelta &&
     a.apiPercentDelta === b.apiPercentDelta &&
     a.partial === b.partial &&
+    a.outdated === b.outdated &&
     a.since === b.since
   );
 }
@@ -180,8 +181,6 @@ function sameUsage(a: UsageSnapshot | undefined, b: UsageSnapshot): boolean {
   return (
     a.autoPercentUsed === b.autoPercentUsed &&
     a.apiPercentUsed === b.apiPercentUsed &&
-    a.includedSpendCents === b.includedSpendCents &&
-    a.includedLimitCents === b.includedLimitCents &&
     a.planName === b.planName &&
     a.billingCycleStart === b.billingCycleStart &&
     a.billingCycleEnd === b.billingCycleEnd &&

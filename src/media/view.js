@@ -2,6 +2,8 @@
   const vscode = acquireVsCodeApi();
   const app = document.getElementById('app');
 
+  let lastData;
+
   function esc(s) {
     return String(s)
       .replace(/&/g, '&amp;')
@@ -114,23 +116,50 @@
     return `+${rounded}%`;
   }
 
-  function fmtSinceLabel(iso, partial, kind) {
-    if (!iso) return '';
+  /** Relative age of a timestamp, e.g. "just now" / "4m ago" / "2h ago". */
+  function fmtRelative(value) {
+    const d = parseWhen(value);
+    if (!d) return '';
+    const diffMs = Date.now() - d.getTime();
+    if (diffMs < 45000) return 'just now';
+    const mins = Math.round(diffMs / 60000);
+    if (mins < 60) return `${mins}m ago`;
+    const hours = Math.round(mins / 60);
+    if (hours < 24) return `${hours}h ago`;
+    return fmtWhen(value);
+  }
+
+  /** `{ text, tip }` for a window's "since" line, or null when unknown. */
+  function sinceInfo(w, kind) {
+    if (!w || !w.since) return null;
     try {
-      const d = new Date(iso);
-      if (Number.isNaN(d.getTime())) return '';
-      const agoMs = Date.now() - d.getTime();
-      const mins = Math.max(0, Math.round(agoMs / 60000));
-      if (kind === 'hour' && partial) {
-        if (mins < 60) return `since ${mins}m ago`;
-        return 'since session start';
+      const d = new Date(w.since);
+      if (Number.isNaN(d.getTime())) return null;
+      const mins = Math.max(0, Math.round((Date.now() - d.getTime()) / 60000));
+      const clock = {
+        hour: '2-digit',
+        minute: '2-digit',
+      };
+
+      if (kind === 'hour') {
+        if (w.outdated) {
+          return {
+            text: 'outdated sample',
+            tip: 'Sampling paused while Cursor was closed or unfocused, so this covers more than the last hour.',
+          };
+        }
+        if (w.partial) {
+          return {
+            text: mins < 60 ? `since ${mins}m ago` : 'since session start',
+          };
+        }
+        return { text: 'rolling 1h' };
       }
+
       if (kind === 'session') {
-        return `since ${d.toLocaleTimeString(undefined, {
-          hour: '2-digit',
-          minute: '2-digit',
-        })}`;
+        return { text: `since ${d.toLocaleTimeString(undefined, clock)}` };
       }
+
       if (kind === 'custom') {
         const now = new Date();
         const sameDay =
@@ -138,29 +167,28 @@
           d.getMonth() === now.getMonth() &&
           d.getDate() === now.getDate();
         if (sameDay) {
-          return `since ${d.toLocaleTimeString(undefined, {
-            hour: '2-digit',
-            minute: '2-digit',
-          })}`;
+          return { text: `since ${d.toLocaleTimeString(undefined, clock)}` };
         }
-        return `since ${d.toLocaleString(undefined, {
-          month: 'short',
-          day: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit',
-        })}`;
+        return {
+          text: `since ${d.toLocaleString(undefined, {
+            month: 'short',
+            day: 'numeric',
+            ...clock,
+          })}`,
+        };
       }
-      return partial ? 'partial hour' : 'rolling 1h';
+
+      return null;
     } catch {
-      return '';
+      return null;
     }
   }
 
   function renderWindowRow(label, w, kind) {
     if (!w) return '';
-    const since = fmtSinceLabel(w.since, w.partial, kind);
+    const since = sinceInfo(w, kind);
     const sinceHtml = since
-      ? `<span class="window-since">${esc(since)}</span>`
+      ? `<span class="window-since"${since.tip ? ` title="${esc(since.tip)}"` : ''}>${esc(since.text)}</span>`
       : '';
     return (
       `<div class="window-row">` +
@@ -178,7 +206,7 @@
 
   function renderUsageSoFar(w) {
     if (!w) return '';
-    const since = fmtSinceLabel(w.since, w.partial, 'custom');
+    const since = sinceInfo(w, 'custom');
     return (
       `<hr class="divider" />` +
       `<section class="section section-usage-so-far">` +
@@ -186,7 +214,9 @@
       `<h2 class="section-title">Usage so far</h2>` +
       `<button class="btn-reset" id="btn-reset-usage-so-far" type="button">Reset</button>` +
       `</div>` +
-      (since ? `<p class="subtitle usage-so-far-since">${esc(since)}</p>` : '') +
+      (since
+        ? `<p class="subtitle usage-so-far-since">${esc(since.text)}</p>`
+        : '') +
       `<div class="window-stats window-stats-block">` +
       `<span class="window-stat window-stat-cm">CM ${esc(fmtDeltaPct(w.autoPercentDelta))}</span>` +
       `<span class="window-stat window-stat-om">OM ${esc(fmtDeltaPct(w.apiPercentDelta))}</span>` +
@@ -234,7 +264,7 @@
       ? `<div class="meta meta-stack"><span class="meta-label">Billing cycle ends</span><span class="meta-value">${esc(fmtWhen(data.billingCycleEnd))}</span>${cycleBar}</div>`
       : '';
     const refreshed = data.refreshedAt
-      ? `<div class="meta meta-stack meta-refreshed"><span class="meta-label">Last refreshed</span><span class="meta-value">${esc(fmtWhen(data.refreshedAt))}</span></div>`
+      ? `<div class="meta meta-stack meta-refreshed"><span class="meta-label">Last refreshed</span><span class="meta-value" id="refreshed-value" title="${esc(fmtWhen(data.refreshedAt))}">${esc(fmtRelative(data.refreshedAt))}</span></div>`
       : '';
 
     const usageSoFar = renderUsageSoFar(data.usageSoFar);
@@ -301,6 +331,13 @@
     });
   }
 
+  /** Keeps the relative "Last refreshed" label honest between refreshes. */
+  setInterval(() => {
+    const el = document.getElementById('refreshed-value');
+    if (!el || !lastData || !lastData.refreshedAt) return;
+    el.textContent = fmtRelative(lastData.refreshedAt);
+  }, 30000);
+
   window.addEventListener('message', (event) => {
     const msg = event.data;
     if (!msg || typeof msg !== 'object') return;
@@ -309,7 +346,8 @@
     } else if (msg.type === 'error') {
       renderError(msg.message || 'Unknown error');
     } else if (msg.type === 'usageData') {
-      renderUsage(msg.data || {});
+      lastData = msg.data || {};
+      renderUsage(lastData);
     }
   });
 

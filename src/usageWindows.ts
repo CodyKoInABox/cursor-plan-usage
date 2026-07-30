@@ -6,12 +6,25 @@ export interface UsageSample {
   apiPercentUsed: number;
 }
 
+/** Persisted "Usage so far" baseline plus the billing cycle it belongs to. */
+export interface UsageSoFarState {
+  baseline: UsageSample;
+  cycleKey?: string;
+}
+
 /** globalState key for the user-resettable "Usage so far" baseline. */
 export const USAGE_SO_FAR_BASELINE_KEY = 'cursorPlanUsage.usageSoFarBaseline';
 
 const HOUR_MS = 60 * 60 * 1000;
 /** Keep slightly more than 1h so we always have a pre-window baseline. */
 const RETAIN_MS = HOUR_MS + 15 * 60 * 1000;
+/** A last-hour baseline older than 1h + this is reported as outdated. */
+const OUTDATED_GRACE_MS = 10 * 60 * 1000;
+/**
+ * Percentage-point drop treated as a billing cycle rollover. Period usage is
+ * cumulative, so a real decrease means the period reset (or the plan changed).
+ */
+const ROLLOVER_DROP_PCT = 1;
 
 function round1(n: number): number {
   return Math.round(n * 10) / 10;
@@ -32,6 +45,19 @@ function delta(
   };
 }
 
+/** Identity of the current billing period, when the API reports one. */
+function cycleKeyOf(snapshot: UsageSnapshot): string | undefined {
+  const start = snapshot.billingCycleStart;
+  if (start != null && start !== '') {
+    return `start:${String(start)}`;
+  }
+  const end = snapshot.billingCycleEnd;
+  if (end != null && end !== '') {
+    return `end:${String(end)}`;
+  }
+  return undefined;
+}
+
 export function isUsageSample(value: unknown): value is UsageSample {
   if (!value || typeof value !== 'object') {
     return false;
@@ -47,6 +73,26 @@ export function isUsageSample(value: unknown): value is UsageSample {
   );
 }
 
+/** Reads persisted state, tolerating the pre-cycleKey bare-sample shape. */
+export function parseUsageSoFarState(
+  value: unknown
+): UsageSoFarState | undefined {
+  if (!value || typeof value !== 'object') {
+    return undefined;
+  }
+  const v = value as Record<string, unknown>;
+  if (isUsageSample(v.baseline)) {
+    return {
+      baseline: v.baseline,
+      cycleKey: typeof v.cycleKey === 'string' ? v.cycleKey : undefined,
+    };
+  }
+  if (isUsageSample(v)) {
+    return { baseline: v };
+  }
+  return undefined;
+}
+
 /**
  * In-memory ring of period-usage samples for last-hour / IDE-session deltas.
  * Absolute spend/% come from GetCurrentPeriodUsage; windows are local diffs.
@@ -55,42 +101,44 @@ export class UsageWindowTracker {
   private samples: UsageSample[] = [];
   private sessionBaseline?: UsageSample;
   private customBaseline?: UsageSample;
-  /** True when customBaseline was seeded this session and not yet persisted. */
+  private cycleKey?: string;
+  /** True when customBaseline was seeded/rolled over and not yet persisted. */
   private customBaselineNeedsPersist = false;
 
-  loadCustomBaseline(sample: UsageSample): void {
-    this.customBaseline = { ...sample };
+  loadCustomBaseline(state: UsageSoFarState): void {
+    this.customBaseline = { ...state.baseline };
+    this.cycleKey = state.cycleKey;
     this.customBaselineNeedsPersist = false;
-  }
-
-  getCustomBaseline(): UsageSample | undefined {
-    return this.customBaseline ? { ...this.customBaseline } : undefined;
   }
 
   /**
    * If the custom baseline was auto-seeded and not yet written, return it and
    * clear the dirty flag. Callers should persist to globalState.
    */
-  takeCustomBaselineIfNeedsPersist(): UsageSample | undefined {
-    if (!this.customBaselineNeedsPersist || !this.customBaseline) {
+  takeCustomBaselineIfNeedsPersist(): UsageSoFarState | undefined {
+    if (!this.customBaselineNeedsPersist) {
+      return undefined;
+    }
+    const state = this.customState();
+    if (!state) {
       return undefined;
     }
     this.customBaselineNeedsPersist = false;
-    return { ...this.customBaseline };
+    return state;
   }
 
   /**
-   * Reset "Usage so far" to the latest sample. Returns the new baseline, or
+   * Reset "Usage so far" to the latest sample. Returns the new state, or
    * undefined if there are no samples yet.
    */
-  resetCustomBaseline(): UsageSample | undefined {
+  resetCustomBaseline(): UsageSoFarState | undefined {
     const current = this.latest();
     if (!current) {
       return undefined;
     }
     this.customBaseline = { ...current };
     this.customBaselineNeedsPersist = false;
-    return { ...this.customBaseline };
+    return this.customState();
   }
 
   record(snapshot: UsageSnapshot, at = Date.now()): void {
@@ -99,9 +147,17 @@ export class UsageWindowTracker {
       autoPercentUsed: snapshot.autoPercentUsed,
       apiPercentUsed: snapshot.apiPercentUsed,
     };
-    if (!this.sessionBaseline) {
-      this.sessionBaseline = sample;
+    const cycleKey = cycleKeyOf(snapshot);
+    if (this.isRollover(sample, cycleKey)) {
+      // Baselines belong to a period that no longer exists; start clean.
+      this.samples = [];
+      this.sessionBaseline = undefined;
+      this.customBaseline = undefined;
     }
+    if (cycleKey) {
+      this.cycleKey = cycleKey;
+    }
+    this.sessionBaseline ??= sample;
     if (!this.customBaseline) {
       this.customBaseline = sample;
       this.customBaselineNeedsPersist = true;
@@ -135,7 +191,10 @@ export class UsageWindowTracker {
     if (!baseline) {
       return undefined;
     }
-    return delta(baseline, current, target);
+    return {
+      ...delta(baseline, current, target),
+      outdated: baseline.at < target - OUTDATED_GRACE_MS,
+    };
   }
 
   session(_at = Date.now()): UsageWindow | undefined {
@@ -157,8 +216,36 @@ export class UsageWindowTracker {
     return { ...delta(baseline, current, baseline.at), partial: false };
   }
 
+  /**
+   * True when the new sample cannot belong to the same period as what we
+   * already track: the cycle id changed, or cumulative usage went down.
+   */
+  private isRollover(
+    sample: UsageSample,
+    cycleKey: string | undefined
+  ): boolean {
+    if (cycleKey && this.cycleKey && cycleKey !== this.cycleKey) {
+      return true;
+    }
+    const reference = this.latest() ?? this.customBaseline;
+    if (!reference) {
+      return false;
+    }
+    return (
+      sample.autoPercentUsed < reference.autoPercentUsed - ROLLOVER_DROP_PCT ||
+      sample.apiPercentUsed < reference.apiPercentUsed - ROLLOVER_DROP_PCT
+    );
+  }
+
+  private customState(): UsageSoFarState | undefined {
+    if (!this.customBaseline) {
+      return undefined;
+    }
+    return { baseline: { ...this.customBaseline }, cycleKey: this.cycleKey };
+  }
+
   private latest(): UsageSample | undefined {
-    return this.samples[this.samples.length - 1];
+    return this.samples.at(-1);
   }
 
   private earliest(): UsageSample | undefined {

@@ -27,6 +27,11 @@ export interface UsageWindow {
   since: string;
   /** True when history is shorter than the nominal window (e.g. <1h of samples). */
   partial: boolean;
+  /**
+   * True when the baseline is much older than the nominal window, so the delta
+   * covers a longer span than the label implies (sampling was paused).
+   */
+  outdated?: boolean;
 }
 
 export interface AuthResult {

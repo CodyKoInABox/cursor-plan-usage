@@ -15,10 +15,10 @@ Live **Cursor Models** and **Other Models** percentages in a dockable sidebar an
 ## Features
 
 - **Sidebar panel** — CM / OM usage at a glance in the activity bar
-- **Status bar chip** — `CM n% · OM n%` always visible while you work
+- **Status bar chip** — `CM n% · OM n%` always visible while you work, or your **Usage so far** deltas instead
 - **Billing cycle** — progress through the period, end time, and a simple projection
 - **Session deltas** — last-hour and IDE-session usage while the extension is sampling
-- **Usage so far** — custom resettable window that persists across reloads; track any period you care about
+- **Usage so far** — custom resettable window that persists across reloads; track any period you care about. Auto-resets when a new billing cycle starts
 - **Smart refresh** — updates on focus and AI activity; pauses when Cursor is unfocused
 
 
@@ -66,6 +66,7 @@ After install, open the **Plan Usage** icon in the activity bar, or run **Plan U
 | --- | --- | --- |
 | `cursorPlanUsage.pollIntervalSeconds` | `0` | Idle poll interval (seconds) while focused. `0` = adaptive (30s burst for 2 min after AI activity, then 3 min). Polling pauses while unfocused. |
 | `cursorPlanUsage.refreshOnAiActivity` | `true` | Refresh when Cursor’s local AI tracking DB updates |
+| `cursorPlanUsage.statusBarMode` | `absolute` | `absolute` shows cycle totals (`CM 45% · OM 20%`); `usageSoFar` shows deltas since your last Reset (`CM +4% · OM +2%`) |
 | `cursorPlanUsage.apiBaseUrl` | `https://api2.cursor.sh` | Dashboard API base URL |
 
 There is no `sessionToken` setting — use the Set / Clear Session Token commands instead.

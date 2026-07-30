@@ -106,6 +106,19 @@
           "default": true,
           "description": "Near-real-time refresh when Cursor's local AI tracking DB updates (Agent / AI edits)."
         },
+        "cursorPlanUsage.statusBarMode": {
+          "type": "string",
+          "default": "absolute",
+          "enum": [
+            "absolute",
+            "usageSoFar"
+          ],
+          "enumDescriptions": [
+            "Total usage in the current billing cycle (CM 45% · OM 20%).",
+            "Usage since you last pressed Reset in the sidebar (CM +4% · OM +2%)."
+          ],
+          "description": "What the status bar chip shows."
+        },
         "cursorPlanUsage.apiBaseUrl": {
           "type": "string",
           "default": "https://api2.cursor.sh",

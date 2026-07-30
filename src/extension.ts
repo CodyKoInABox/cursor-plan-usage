@@ -13,7 +13,7 @@ import { CursorApiError, fetchUsageSnapshot } from './api';
 import { UsageViewProvider } from './usageViewProvider';
 import type { UsageSnapshot } from './types';
 import {
-  isUsageSample,
+  parseUsageSoFarState,
   USAGE_SO_FAR_BASELINE_KEY,
   UsageWindowTracker,
 } from './usageWindows';
@@ -30,6 +30,7 @@ const BURST_POLL_MS = 30_000;
 const IDLE_POLL_MS = 3 * 60 * 1000;
 
 type RefreshReason = 'manual' | 'poll' | 'focus' | 'activity' | 'config';
+type StatusBarMode = 'absolute' | 'usageSoFar';
 
 let pollTimer: ReturnType<typeof setTimeout> | undefined;
 let debounceTimer: ReturnType<typeof setTimeout> | undefined;
@@ -56,8 +57,10 @@ export function activate(context: vscode.ExtensionContext): void {
 
   windowFocused = vscode.window.state.focused;
 
-  const storedBaseline = context.globalState.get(USAGE_SO_FAR_BASELINE_KEY);
-  if (isUsageSample(storedBaseline)) {
+  const storedBaseline = parseUsageSoFarState(
+    context.globalState.get(USAGE_SO_FAR_BASELINE_KEY)
+  );
+  if (storedBaseline) {
     windowTracker.loadCustomBaseline(storedBaseline);
   }
 
@@ -155,16 +158,17 @@ export function activate(context: vscode.ExtensionContext): void {
   };
 
   const resetUsageSoFar = async (): Promise<void> => {
-    const baseline = windowTracker.resetCustomBaseline();
-    if (!baseline) {
+    const state = windowTracker.resetCustomBaseline();
+    if (!state) {
       void runRefresh({ silent: false, force: true });
       return;
     }
-    await context.globalState.update(USAGE_SO_FAR_BASELINE_KEY, baseline);
+    await context.globalState.update(USAGE_SO_FAR_BASELINE_KEY, state);
     if (lastSnapshot) {
       const updated = windowTracker.overlayWindows(lastSnapshot);
       lastSnapshot = updated;
       provider.showUsage(updated, { force: true });
+      updateStatusBar(statusBar, updated);
       return;
     }
     void runRefresh({ silent: false, force: true });
@@ -300,6 +304,9 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.workspace.onDidChangeConfiguration((e) => {
       if (e.affectsConfiguration('cursorPlanUsage')) {
         armPoll();
+        if (lastSnapshot) {
+          updateStatusBar(statusBar, lastSnapshot);
+        }
         requestRefresh('config', { force: true });
       }
     }),
@@ -374,13 +381,49 @@ function watchAiTrackingDb(onActivity: () => void): vscode.Disposable {
   };
 }
 
+function fmtSinceClock(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) {
+    return 'reset';
+  }
+  return d.toLocaleString();
+}
+
 function updateStatusBar(
   item: vscode.StatusBarItem,
   snapshot: UsageSnapshot
 ): void {
+  const mode = vscode.workspace
+    .getConfiguration('cursorPlanUsage')
+    .get<StatusBarMode>('statusBarMode', 'absolute');
   const cm = Math.round(snapshot.autoPercentUsed);
   const om = Math.round(snapshot.apiPercentUsed);
-  const key = [snapshot.planName, cm, om].join('|');
+  const soFar = snapshot.usageSoFar;
+
+  if (mode === 'usageSoFar' && soFar) {
+    const key = [
+      'soFar',
+      snapshot.planName,
+      soFar.autoPercentDelta,
+      soFar.apiPercentDelta,
+      soFar.since,
+    ].join('|');
+    if (key === lastStatusKey) {
+      return;
+    }
+    lastStatusKey = key;
+    item.text = `$(history) CM +${soFar.autoPercentDelta}% · OM +${soFar.apiPercentDelta}%`;
+    item.tooltip = [
+      `Cursor Plan Usage — ${snapshot.planName}`,
+      `Usage so far (since ${fmtSinceClock(soFar.since)})`,
+      `Cursor Models +${soFar.autoPercentDelta}%`,
+      `Other Models +${soFar.apiPercentDelta}%`,
+      `Cycle total — CM ${cm}% · OM ${om}%`,
+    ].join('\n');
+    return;
+  }
+
+  const key = ['absolute', snapshot.planName, cm, om].join('|');
   if (key === lastStatusKey) {
     return;
   }
