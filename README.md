@@ -2,7 +2,7 @@
 
 **See your Cursor plan usage without leaving the editor.**
 
-Live **Cursor Models** and **Other Models** percentages in a dockable sidebar and status bar chip — so you always know where you stand in the billing cycle.
+[Website](https://codykoinabox.github.io/cursor-plan-usage/) · Live **Cursor Models** and **Other Models** percentages in a dockable sidebar and status bar chip — so you always know where you stand in the billing cycle.
 
 #### You can easily install the extension through the Extensions tab inside Cursor:
 <img width="268" height="228" alt="image" src="https://github.com/user-attachments/assets/2e36d629-3784-4ecd-b4be-677fd1a1ce41" />
