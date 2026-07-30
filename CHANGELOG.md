@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.2.0
+
+### Features
+
+- Added persistent, resettable **Usage so far** tracking for custom time periods
+- Added an optional status bar mode showing usage since the last reset
+- Automatically resets local tracking when the billing cycle changes
+- Added relative **Last refreshed** time with the exact timestamp on hover
+- Marks last-hour data as an outdated sample after long sampling gaps
+
+### UI
+
+- Renamed **Windows** to **Recent usage**
+- Simplified the usage and footer layout
+- Removed the included-spend display
+
 ## 0.1.0
 
 Initial public release.

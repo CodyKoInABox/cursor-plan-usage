@@ -2,7 +2,7 @@
   "name": "cursor-plan-usage",
   "displayName": "Cursor Plan Usage",
   "description": "Dockable sidebar showing Cursor Models and Other Models plan usage percentages.",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "publisher": "CodyKoInABox",
   "license": "MIT",
   "icon": "resources/icon.png",
