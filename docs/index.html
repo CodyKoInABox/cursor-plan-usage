@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cursor Plan Usage</title>
+    <meta
+      name="description"
+      content="See your Cursor plan usage without leaving the editor. Live CM and OM percentages in a sidebar and status bar."
+    />
+    <link rel="icon" href="assets/icon.png" type="image/png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Sora:wght@500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="atmosphere" aria-hidden="true">
+      <div class="mesh mesh-cm"></div>
+      <div class="mesh mesh-om"></div>
+      <div class="usage-bars" aria-hidden="true">
+        <span class="usage-bar bar-cm"></span>
+        <span class="usage-bar bar-om"></span>
+        <span class="usage-bar bar-cycle"></span>
+      </div>
+    </div>
+
+    <header class="site-header">
+      <a class="brand-mark" href="#top">
+        <img src="assets/icon.png" alt="" width="28" height="28" />
+        <span>Cursor Plan Usage</span>
+      </a>
+      <nav aria-label="Page">
+        <a href="#features">Features</a>
+        <a href="#install">Install</a>
+        <a
+          href="https://github.com/CodyKoInABox/cursor-plan-usage"
+          rel="noopener noreferrer"
+          >GitHub</a
+        >
+      </nav>
+    </header>
+
+    <main id="top">
+      <section class="hero">
+        <div class="hero-copy reveal">
+          <p class="brand-hero">Cursor Plan Usage</p>
+          <p class="tagline">
+            See your Cursor plan usage without leaving the editor.
+          </p>
+          <p class="lede">
+            Live Cursor Models and Other Models percentages in a dockable
+            sidebar and status bar chip — so you always know where you stand in
+            the billing cycle.
+          </p>
+          <div class="cta-row">
+            <a class="btn btn-primary" href="#install">Install in Cursor</a>
+            <a
+              class="btn btn-ghost"
+              href="https://github.com/CodyKoInABox/cursor-plan-usage"
+              rel="noopener noreferrer"
+              >View on GitHub</a
+            >
+          </div>
+        </div>
+        <div class="hero-visual reveal reveal-delay">
+          <img
+            src="assets/sidebar.png"
+            alt="Plan Usage sidebar showing Cursor Models and Other Models percentages"
+            width="374"
+            height="808"
+            fetchpriority="high"
+          />
+        </div>
+      </section>
+
+      <section class="section features" id="features">
+        <div class="section-intro reveal">
+          <h2>What you get</h2>
+          <p>Everything you need to track plan burn without leaving Cursor.</p>
+        </div>
+        <ul class="feature-list">
+          <li class="reveal">
+            <strong>Sidebar panel</strong>
+            <span>CM / OM usage at a glance in the activity bar</span>
+          </li>
+          <li class="reveal">
+            <strong>Status bar chip</strong>
+            <span
+              >Always-visible <code>CM n% · OM n%</code> — or Usage so far
+              deltas</span
+            >
+          </li>
+          <li class="reveal">
+            <strong>Billing cycle</strong>
+            <span>Progress through the period, end time, and a simple projection</span>
+          </li>
+          <li class="reveal">
+            <strong>Session deltas</strong>
+            <span>Last-hour and IDE-session usage while the extension is sampling</span>
+          </li>
+          <li class="reveal">
+            <strong>Usage so far</strong>
+            <span
+              >Resettable window that persists across reloads; auto-resets on a
+              new billing cycle</span
+            >
+          </li>
+          <li class="reveal">
+            <strong>Smart refresh</strong>
+            <span>Updates on focus and AI activity; pauses when Cursor is unfocused</span>
+          </li>
+        </ul>
+      </section>
+
+      <section class="section install" id="install">
+        <div class="section-intro reveal">
+          <h2>Install in Cursor</h2>
+          <p>Extensions tab → search → install. That’s it.</p>
+        </div>
+        <div class="install-body reveal">
+          <img
+            src="assets/install.png"
+            alt="Installing Cursor Plan Usage from the Extensions tab in Cursor"
+            width="268"
+            height="228"
+            loading="lazy"
+          />
+          <div class="install-copy">
+            <ol>
+              <li>Open Extensions</li>
+              <li>Search <strong>Cursor Plan Usage</strong></li>
+              <li>Install</li>
+            </ol>
+            <p>
+              Also on
+              <a
+                href="https://open-vsx.org/extension/CodyKoInABox/cursor-plan-usage"
+                rel="noopener noreferrer"
+                >Open VSX</a
+              >.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section feedback" id="feedback">
+        <div class="feedback-inner reveal">
+          <h2>Feedback</h2>
+          <p>Found a bug or have an idea? Open an issue on GitHub.</p>
+          <div class="cta-row">
+            <a
+              class="btn btn-primary"
+              href="https://github.com/CodyKoInABox/cursor-plan-usage/issues/new?labels=bug&title=Bug%3A%20"
+              rel="noopener noreferrer"
+              >Report a bug</a
+            >
+            <a
+              class="btn btn-ghost"
+              href="https://github.com/CodyKoInABox/cursor-plan-usage/issues/new?labels=enhancement&title=Feature%3A%20"
+              rel="noopener noreferrer"
+              >Suggest a feature</a
+            >
+          </div>
+        </div>
+      </section>
+
+      <section class="section notes" id="notes">
+        <div class="note reveal">
+          <h2>Open source</h2>
+          <p>
+            MIT licensed and fully readable on
+            <a
+              href="https://github.com/CodyKoInABox/cursor-plan-usage"
+              rel="noopener noreferrer"
+              >GitHub</a
+            >. Audit it, fork it, or send a pull request.
+          </p>
+        </div>
+        <div class="note reveal">
+          <h2>Privacy</h2>
+          <p>
+            Your access token stays in your machine.
+            <strong>No telemetry.</strong> No third-party API calls.
+          </p>
+        </div>
+        <div class="note reveal">
+          <h2>Lightweight</h2>
+          <p>
+            Built to stay out of your way. Smart refresh pauses when Cursor is
+            unfocused and avoids unnecessary background work.
+          </p>
+        </div>
+        <div class="note reveal">
+          <h2>Native to Cursor</h2>
+          <p>
+            Lives in the sidebar and status bar, using Cursor’s existing UI
+            instead of opening another dashboard.
+          </p>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <p>
+        <a href="https://github.com/CodyKoInABox/cursor-plan-usage" rel="noopener noreferrer"
+          >MIT</a
+        >
+        · Created by
+        <a href="https://github.com/CodyKoInABox" rel="noopener noreferrer"
+          >CodyKoInABox</a
+        >
+      </p>
+    </footer>
+
+    <script src="script.js" defer></script>
+  </body>
+</html>
