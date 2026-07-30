@@ -32,6 +32,8 @@ jobs:
 
       - run: npm run check
 
+      - run: npm test
+
       - name: Package
         run: npm run package
 
