@@ -12,7 +12,11 @@ import {
 import { CursorApiError, fetchUsageSnapshot } from './api';
 import { UsageViewProvider } from './usageViewProvider';
 import type { UsageSnapshot } from './types';
-import { UsageWindowTracker } from './usageWindows';
+import {
+  isUsageSample,
+  USAGE_SO_FAR_BASELINE_KEY,
+  UsageWindowTracker,
+} from './usageWindows';
 
 /** Hard floor between API calls (except force). */
 const MIN_REFRESH_GAP_MS = 12_000;
@@ -36,6 +40,7 @@ let lastSuccessAt = 0;
 let lastActivityAt = 0;
 let lastStatusKey = '';
 let windowFocused = true;
+let lastSnapshot: UsageSnapshot | undefined;
 const windowTracker = new UsageWindowTracker();
 
 export function activate(context: vscode.ExtensionContext): void {
@@ -50,6 +55,27 @@ export function activate(context: vscode.ExtensionContext): void {
   statusBar.show();
 
   windowFocused = vscode.window.state.focused;
+
+  const storedBaseline = context.globalState.get(USAGE_SO_FAR_BASELINE_KEY);
+  if (isUsageSample(storedBaseline)) {
+    windowTracker.loadCustomBaseline(storedBaseline);
+  }
+
+  const persistCustomBaselineIfNeeded = async (): Promise<void> => {
+    const toSave = windowTracker.takeCustomBaselineIfNeedsPersist();
+    if (toSave) {
+      await context.globalState.update(USAGE_SO_FAR_BASELINE_KEY, toSave);
+    }
+  };
+
+  const applySnapshot = async (
+    snapshot: UsageSnapshot,
+    opts?: { force?: boolean }
+  ): Promise<boolean> => {
+    lastSnapshot = snapshot;
+    await persistCustomBaselineIfNeeded();
+    return provider.showUsage(snapshot, opts);
+  };
 
   const runRefresh = async (opts: {
     silent: boolean;
@@ -92,7 +118,7 @@ export function activate(context: vscode.ExtensionContext): void {
         const raw = await fetchUsageSnapshot(auth);
         const snapshot = windowTracker.attachWindows(raw);
         lastSuccessAt = Date.now();
-        const changed = provider.showUsage(snapshot, { force: !opts.silent });
+        const changed = await applySnapshot(snapshot, { force: !opts.silent });
         if (changed || !opts.silent) {
           updateStatusBar(statusBar, snapshot);
         }
@@ -103,7 +129,7 @@ export function activate(context: vscode.ExtensionContext): void {
           const raw = await fetchUsageSnapshot(auth);
           const snapshot = windowTracker.attachWindows(raw);
           lastSuccessAt = Date.now();
-          provider.showUsage(snapshot, { force: true });
+          await applySnapshot(snapshot, { force: true });
           updateStatusBar(statusBar, snapshot);
           return;
         }
@@ -126,6 +152,22 @@ export function activate(context: vscode.ExtensionContext): void {
         armPoll();
       }
     }
+  };
+
+  const resetUsageSoFar = async (): Promise<void> => {
+    const baseline = windowTracker.resetCustomBaseline();
+    if (!baseline) {
+      void runRefresh({ silent: false, force: true });
+      return;
+    }
+    await context.globalState.update(USAGE_SO_FAR_BASELINE_KEY, baseline);
+    if (lastSnapshot) {
+      const updated = windowTracker.overlayWindows(lastSnapshot);
+      lastSnapshot = updated;
+      provider.showUsage(updated, { force: true });
+      return;
+    }
+    void runRefresh({ silent: false, force: true });
   };
 
   const requestRefresh = (
@@ -158,6 +200,7 @@ export function activate(context: vscode.ExtensionContext): void {
   };
 
   provider.setRefreshHandler(() => runRefresh({ silent: false, force: true }));
+  provider.setResetUsageSoFarHandler(() => resetUsageSoFar());
   provider.setVisibilityHandler((visible) => {
     if (visible) {
       refreshIfStale(STALE_ON_FOCUS_MS);

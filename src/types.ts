@@ -15,6 +15,8 @@ export interface UsageSnapshot {
   lastHour?: UsageWindow;
   /** Usage since this IDE / extension session started. */
   session?: UsageWindow;
+  /** User-resettable window; baseline persisted across reloads. */
+  usageSoFar?: UsageWindow;
 }
 
 /** Delta for a time window relative to a baseline sample. */

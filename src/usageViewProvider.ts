@@ -6,7 +6,10 @@ type HostToWebview =
   | { type: 'error'; message: string }
   | { type: 'loading' };
 
-type WebviewToHost = { type: 'refresh' } | { type: 'ready' };
+type WebviewToHost =
+  | { type: 'refresh' }
+  | { type: 'ready' }
+  | { type: 'resetUsageSoFar' };
 
 export class UsageViewProvider implements vscode.WebviewViewProvider {
   public static readonly viewId = 'cursorPlanUsage.panel';
@@ -15,6 +18,7 @@ export class UsageViewProvider implements vscode.WebviewViewProvider {
   private lastSnapshot?: UsageSnapshot;
   private lastError?: string;
   private refreshHandler?: (opts?: { silent?: boolean }) => Promise<void>;
+  private resetUsageSoFarHandler?: () => Promise<void>;
   private visibilityHandler?: (visible: boolean) => void;
 
   constructor(private readonly extensionUri: vscode.Uri) {}
@@ -23,6 +27,10 @@ export class UsageViewProvider implements vscode.WebviewViewProvider {
     handler: (opts?: { silent?: boolean }) => Promise<void>
   ): void {
     this.refreshHandler = handler;
+  }
+
+  setResetUsageSoFarHandler(handler: () => Promise<void>): void {
+    this.resetUsageSoFarHandler = handler;
   }
 
   setVisibilityHandler(handler: (visible: boolean) => void): void {
@@ -50,13 +58,16 @@ export class UsageViewProvider implements vscode.WebviewViewProvider {
     webviewView.webview.html = this.getHtml(webviewView.webview);
 
     webviewView.webview.onDidReceiveMessage(async (msg: WebviewToHost) => {
-      if (msg.type === 'refresh' || msg.type === 'ready') {
-        if (msg.type === 'ready') {
-          this.replayLastState();
-        }
-        if (msg.type === 'refresh' && this.refreshHandler) {
-          await this.refreshHandler({ silent: false });
-        }
+      if (msg.type === 'ready') {
+        this.replayLastState();
+        return;
+      }
+      if (msg.type === 'refresh' && this.refreshHandler) {
+        await this.refreshHandler({ silent: false });
+        return;
+      }
+      if (msg.type === 'resetUsageSoFar' && this.resetUsageSoFarHandler) {
+        await this.resetUsageSoFarHandler();
       }
     });
 
@@ -175,7 +186,8 @@ function sameUsage(a: UsageSnapshot | undefined, b: UsageSnapshot): boolean {
     a.billingCycleStart === b.billingCycleStart &&
     a.billingCycleEnd === b.billingCycleEnd &&
     sameWindow(a.lastHour, b.lastHour) &&
-    sameWindow(a.session, b.session)
+    sameWindow(a.session, b.session) &&
+    sameWindow(a.usageSoFar, b.usageSoFar)
   );
 }
 

@@ -295,6 +295,11 @@ body {
   white-space: nowrap;
 }
 
+.window-stats-block {
+  justify-content: flex-start;
+  margin-top: 2px;
+}
+
 .window-stat {
   padding: 2px 7px;
   border-radius: 999px;
@@ -308,6 +313,21 @@ body {
 .window-stat-om {
   color: var(--bar-other);
   background: color-mix(in srgb, var(--bar-other) 18%, transparent);
+}
+
+.section-usage-so-far .section-head {
+  align-items: center;
+}
+
+.usage-so-far-since {
+  font-size: 0.8em;
+}
+
+.btn-reset {
+  padding: 2px 8px;
+  font-size: 0.85em;
+  line-height: 1.3;
+  flex-shrink: 0;
 }
 
 .footer {
@@ -328,6 +348,11 @@ body {
   display: flex;
   flex-direction: column;
   gap: 2px;
+}
+
+.meta-refreshed {
+  font-size: 0.8em;
+  margin-top: 6px;
 }
 
 .meta-value {

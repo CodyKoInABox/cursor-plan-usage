@@ -17,8 +17,8 @@ Live **Cursor Models** and **Other Models** percentages in a dockable sidebar an
 - **Sidebar panel** — CM / OM usage at a glance in the activity bar
 - **Status bar chip** — `CM n% · OM n%` always visible while you work
 - **Billing cycle** — progress through the period, end time, and a simple projection
-- **Spend context** — included spend / limit in the footer when Cursor’s API provides it
 - **Session deltas** — last-hour and IDE-session usage while the extension is sampling
+- **Usage so far** — custom resettable window that persists across reloads; track any period you care about
 - **Smart refresh** — updates on focus and AI activity; pauses when Cursor is unfocused
 
 

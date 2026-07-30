@@ -6,6 +6,9 @@ export interface UsageSample {
   apiPercentUsed: number;
 }
 
+/** globalState key for the user-resettable "Usage so far" baseline. */
+export const USAGE_SO_FAR_BASELINE_KEY = 'cursorPlanUsage.usageSoFarBaseline';
+
 const HOUR_MS = 60 * 60 * 1000;
 /** Keep slightly more than 1h so we always have a pre-window baseline. */
 const RETAIN_MS = HOUR_MS + 15 * 60 * 1000;
@@ -29,6 +32,21 @@ function delta(
   };
 }
 
+export function isUsageSample(value: unknown): value is UsageSample {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+  const v = value as Record<string, unknown>;
+  return (
+    typeof v.at === 'number' &&
+    Number.isFinite(v.at) &&
+    typeof v.autoPercentUsed === 'number' &&
+    Number.isFinite(v.autoPercentUsed) &&
+    typeof v.apiPercentUsed === 'number' &&
+    Number.isFinite(v.apiPercentUsed)
+  );
+}
+
 /**
  * In-memory ring of period-usage samples for last-hour / IDE-session deltas.
  * Absolute spend/% come from GetCurrentPeriodUsage; windows are local diffs.
@@ -36,6 +54,44 @@ function delta(
 export class UsageWindowTracker {
   private samples: UsageSample[] = [];
   private sessionBaseline?: UsageSample;
+  private customBaseline?: UsageSample;
+  /** True when customBaseline was seeded this session and not yet persisted. */
+  private customBaselineNeedsPersist = false;
+
+  loadCustomBaseline(sample: UsageSample): void {
+    this.customBaseline = { ...sample };
+    this.customBaselineNeedsPersist = false;
+  }
+
+  getCustomBaseline(): UsageSample | undefined {
+    return this.customBaseline ? { ...this.customBaseline } : undefined;
+  }
+
+  /**
+   * If the custom baseline was auto-seeded and not yet written, return it and
+   * clear the dirty flag. Callers should persist to globalState.
+   */
+  takeCustomBaselineIfNeedsPersist(): UsageSample | undefined {
+    if (!this.customBaselineNeedsPersist || !this.customBaseline) {
+      return undefined;
+    }
+    this.customBaselineNeedsPersist = false;
+    return { ...this.customBaseline };
+  }
+
+  /**
+   * Reset "Usage so far" to the latest sample. Returns the new baseline, or
+   * undefined if there are no samples yet.
+   */
+  resetCustomBaseline(): UsageSample | undefined {
+    const current = this.latest();
+    if (!current) {
+      return undefined;
+    }
+    this.customBaseline = { ...current };
+    this.customBaselineNeedsPersist = false;
+    return { ...this.customBaseline };
+  }
 
   record(snapshot: UsageSnapshot, at = Date.now()): void {
     const sample: UsageSample = {
@@ -46,16 +102,26 @@ export class UsageWindowTracker {
     if (!this.sessionBaseline) {
       this.sessionBaseline = sample;
     }
+    if (!this.customBaseline) {
+      this.customBaseline = sample;
+      this.customBaselineNeedsPersist = true;
+    }
     this.samples.push(sample);
     this.prune(at);
   }
 
   attachWindows(snapshot: UsageSnapshot, at = Date.now()): UsageSnapshot {
     this.record(snapshot, at);
+    return this.overlayWindows(snapshot, at);
+  }
+
+  /** Recompute window fields without recording a new sample (e.g. after reset). */
+  overlayWindows(snapshot: UsageSnapshot, at = Date.now()): UsageSnapshot {
     return {
       ...snapshot,
       lastHour: this.lastHour(at),
       session: this.session(at),
+      usageSoFar: this.usageSoFar(at),
     };
   }
 
@@ -79,6 +145,15 @@ export class UsageWindowTracker {
       return undefined;
     }
     // Session is never "partial" relative to a longer nominal window.
+    return { ...delta(baseline, current, baseline.at), partial: false };
+  }
+
+  usageSoFar(_at = Date.now()): UsageWindow | undefined {
+    const current = this.latest();
+    const baseline = this.customBaseline;
+    if (!current || !baseline) {
+      return undefined;
+    }
     return { ...delta(baseline, current, baseline.at), partial: false };
   }
 

@@ -131,6 +131,25 @@
           minute: '2-digit',
         })}`;
       }
+      if (kind === 'custom') {
+        const now = new Date();
+        const sameDay =
+          d.getFullYear() === now.getFullYear() &&
+          d.getMonth() === now.getMonth() &&
+          d.getDate() === now.getDate();
+        if (sameDay) {
+          return `since ${d.toLocaleTimeString(undefined, {
+            hour: '2-digit',
+            minute: '2-digit',
+          })}`;
+        }
+        return `since ${d.toLocaleString(undefined, {
+          month: 'short',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        })}`;
+      }
       return partial ? 'partial hour' : 'rolling 1h';
     } catch {
       return '';
@@ -157,34 +176,22 @@
     );
   }
 
-  function fmtCents(cents) {
-    const n = typeof cents === 'number' && Number.isFinite(cents) ? cents : NaN;
-    if (!Number.isFinite(n)) return '';
-    const dollars = n / 100;
-    return dollars.toLocaleString(undefined, {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: dollars % 1 === 0 ? 0 : 2,
-      maximumFractionDigits: 2,
-    });
-  }
-
-  function renderIncludedSpend(data) {
-    const spend = data.includedSpendCents;
-    const limit = data.includedLimitCents;
-    if (
-      typeof spend !== 'number' ||
-      !Number.isFinite(spend) ||
-      typeof limit !== 'number' ||
-      !Number.isFinite(limit)
-    ) {
-      return '';
-    }
+  function renderUsageSoFar(w) {
+    if (!w) return '';
+    const since = fmtSinceLabel(w.since, w.partial, 'custom');
     return (
-      `<div class="meta meta-stack">` +
-      `<span class="meta-label">Included spend</span>` +
-      `<span class="meta-value">${esc(fmtCents(spend))} / ${esc(fmtCents(limit))} included</span>` +
-      `</div>`
+      `<hr class="divider" />` +
+      `<section class="section section-usage-so-far">` +
+      `<div class="section-head">` +
+      `<h2 class="section-title">Usage so far</h2>` +
+      `<button class="btn-reset" id="btn-reset-usage-so-far" type="button">Reset</button>` +
+      `</div>` +
+      (since ? `<p class="subtitle usage-so-far-since">${esc(since)}</p>` : '') +
+      `<div class="window-stats window-stats-block">` +
+      `<span class="window-stat window-stat-cm">CM ${esc(fmtDeltaPct(w.autoPercentDelta))}</span>` +
+      `<span class="window-stat window-stat-om">OM ${esc(fmtDeltaPct(w.apiPercentDelta))}</span>` +
+      `</div>` +
+      `</section>`
     );
   }
 
@@ -227,17 +234,18 @@
       ? `<div class="meta meta-stack"><span class="meta-label">Billing cycle ends</span><span class="meta-value">${esc(fmtWhen(data.billingCycleEnd))}</span>${cycleBar}</div>`
       : '';
     const refreshed = data.refreshedAt
-      ? `<div class="meta meta-stack"><span class="meta-label">Last refreshed</span><span class="meta-value">${esc(fmtWhen(data.refreshedAt))}</span></div>`
+      ? `<div class="meta meta-stack meta-refreshed"><span class="meta-label">Last refreshed</span><span class="meta-value">${esc(fmtWhen(data.refreshedAt))}</span></div>`
       : '';
+
+    const usageSoFar = renderUsageSoFar(data.usageSoFar);
 
     const windows =
       data.lastHour || data.session
         ? `<hr class="divider" />` +
           `<section class="section section-windows">` +
           `<div class="section-head">` +
-          `<h2 class="section-title">Windows</h2>` +
+          `<h2 class="section-title">Recent usage</h2>` +
           `</div>` +
-          `<p class="subtitle">Account usage while this extension has been sampling</p>` +
           `<div class="windows">` +
           renderWindowRow('Last hour', data.lastHour, 'hour') +
           renderWindowRow('IDE session', data.session, 'session') +
@@ -265,13 +273,14 @@
         'other',
         cyclePct
       ) +
+      usageSoFar +
       windows +
       `<hr class="divider" />` +
       `<div class="footer">` +
-      renderIncludedSpend(data) +
       cycle +
       refreshed +
       `</div>`;
+    bindResetUsageSoFar();
   }
 
   function bindRefresh() {
@@ -280,6 +289,15 @@
     btn.addEventListener('click', () => {
       btn.disabled = true;
       vscode.postMessage({ type: 'refresh' });
+    });
+  }
+
+  function bindResetUsageSoFar() {
+    const btn = document.getElementById('btn-reset-usage-so-far');
+    if (!btn) return;
+    btn.addEventListener('click', () => {
+      btn.disabled = true;
+      vscode.postMessage({ type: 'resetUsageSoFar' });
     });
   }
 
