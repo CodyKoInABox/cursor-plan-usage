@@ -223,6 +223,42 @@
     );
   }
 
+  function sinceLastCommitSubtitle(w, git) {
+    const tip =
+      'Plan usage since your working tree went dirty at this HEAD. Not attributed to specific files.';
+    if (git && (git.branch || git.dirtyFiles)) {
+      const parts = [];
+      if (git.branch) parts.push(String(git.branch));
+      if (git.dirtyFiles) {
+        const n = git.dirtyFiles;
+        parts.push(`${n} file${n === 1 ? '' : 's'}`);
+      }
+      return { text: parts.join(' · '), tip };
+    }
+    const since = sinceInfo(w, 'custom');
+    return since ? { text: since.text, tip } : { text: '', tip };
+  }
+
+  function renderSinceLastCommit(w, git) {
+    if (!w) return '';
+    const sub = sinceLastCommitSubtitle(w, git);
+    return (
+      `<hr class="divider" />` +
+      `<section class="section section-since-last-commit">` +
+      `<div class="section-head">` +
+      `<h2 class="section-title" title="${esc(sub.tip)}">Since last commit</h2>` +
+      `</div>` +
+      (sub.text
+        ? `<p class="subtitle usage-so-far-since" title="${esc(sub.tip)}">${esc(sub.text)}</p>`
+        : '') +
+      `<div class="window-stats window-stats-block">` +
+      `<span class="window-stat window-stat-cm">CM ${esc(fmtDeltaPct(w.autoPercentDelta))}</span>` +
+      `<span class="window-stat window-stat-om">OM ${esc(fmtDeltaPct(w.apiPercentDelta))}</span>` +
+      `</div>` +
+      `</section>`
+    );
+  }
+
   function renderLoading() {
     app.innerHTML = '<div class="state state-loading">Loading plan usage…</div>';
   }
@@ -266,6 +302,10 @@
       : '';
 
     const usageSoFar = renderUsageSoFar(data.usageSoFar);
+    const sinceLastCommit = renderSinceLastCommit(
+      data.sinceLastCommit,
+      data.git
+    );
 
     const windows =
       data.lastHour || data.session
@@ -302,6 +342,7 @@
         cyclePct
       ) +
       usageSoFar +
+      sinceLastCommit +
       windows +
       `<hr class="divider" />` +
       `<div class="footer">` +

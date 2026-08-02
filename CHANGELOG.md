@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.0
+
+### Features
+
+- Added **Since last commit** usage window: plan % burned while the working tree is dirty, re-anchored on every HEAD move (automatic; no manual reset)
+- Optional status bar mode `sinceLastCommit` (`CM +n% · OM +n%`)
+
 ## 0.2.0
 
 ### Features

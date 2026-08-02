@@ -12,11 +12,25 @@ export interface UsageSoFarState {
   cycleKey?: string;
 }
 
+/**
+ * Keyed baseline for "Since last commit" — key is `{repoRoot}@{headCommit}`.
+ * Persisted in workspaceState (per-workspace).
+ */
+export interface AnchoredBaseline {
+  key: string;
+  baseline: UsageSample;
+  cycleKey?: string;
+}
+
 /** globalState key for the user-resettable "Usage so far" baseline. */
 export const USAGE_SO_FAR_BASELINE_KEY = 'cursorPlanUsage.usageSoFarBaseline';
 
 /** globalState key for the pruned last-hour sample ring. */
 export const USAGE_SAMPLES_KEY = 'cursorPlanUsage.usageSamples';
+
+/** workspaceState key for the "Since last commit" keyed baseline. */
+export const SINCE_LAST_COMMIT_BASELINE_KEY =
+  'cursorPlanUsage.sinceLastCommitBaseline';
 
 const HOUR_MS = 60 * 60 * 1000;
 /** Keep slightly more than 1h so we always have a pre-window baseline. */
@@ -114,6 +128,28 @@ export function parseUsageSamples(value: unknown): UsageSample[] {
   return out;
 }
 
+/** Reads a persisted keyed anchor for "Since last commit". */
+export function parseAnchoredBaseline(
+  value: unknown
+): AnchoredBaseline | undefined {
+  if (!value || typeof value !== 'object') {
+    return undefined;
+  }
+  const v = value as Record<string, unknown>;
+  if (typeof v.key !== 'string' || !v.key || !isUsageSample(v.baseline)) {
+    return undefined;
+  }
+  return {
+    key: v.key,
+    baseline: {
+      at: v.baseline.at,
+      autoPercentUsed: v.baseline.autoPercentUsed,
+      apiPercentUsed: v.baseline.apiPercentUsed,
+    },
+    cycleKey: typeof v.cycleKey === 'string' ? v.cycleKey : undefined,
+  };
+}
+
 /**
  * Sample ring for last-hour (persisted) and IDE-session (in-memory) deltas.
  * Absolute spend/% come from GetCurrentPeriodUsage; windows are local diffs.
@@ -127,11 +163,27 @@ export class UsageWindowTracker {
   private customBaselineNeedsPersist = false;
   /** True when the sample ring changed and is not yet persisted. */
   private samplesNeedPersist = false;
+  /** Keyed "Since last commit" anchor. */
+  private anchor?: AnchoredBaseline;
+  /** Anchor key requested before any sample existed; applied on next record(). */
+  private pendingAnchorKey?: string;
+  /** True when anchor was auto-applied and not yet persisted. */
+  private anchorNeedsPersist = false;
 
   loadCustomBaseline(state: UsageSoFarState): void {
     this.customBaseline = { ...state.baseline };
     this.cycleKey = state.cycleKey;
     this.customBaselineNeedsPersist = false;
+  }
+
+  loadAnchor(state: AnchoredBaseline): void {
+    this.anchor = {
+      key: state.key,
+      baseline: { ...state.baseline },
+      cycleKey: state.cycleKey,
+    };
+    this.pendingAnchorKey = undefined;
+    this.anchorNeedsPersist = false;
   }
 
   /**
@@ -173,6 +225,18 @@ export class UsageWindowTracker {
   }
 
   /**
+   * If the since-last-commit anchor changed and is not yet written, return it
+   * (or null when cleared) and clear the dirty flag.
+   */
+  takeAnchorIfNeedsPersist(): AnchoredBaseline | null | undefined {
+    if (!this.anchorNeedsPersist) {
+      return undefined;
+    }
+    this.anchorNeedsPersist = false;
+    return this.anchorState() ?? null;
+  }
+
+  /**
    * Reset "Usage so far" to the latest sample. Returns the new state, or
    * undefined if there are no samples yet.
    */
@@ -184,6 +248,43 @@ export class UsageWindowTracker {
     this.customBaseline = { ...current };
     this.customBaselineNeedsPersist = false;
     return this.customState();
+  }
+
+  /**
+   * Set or clear the "Since last commit" key. No-op when the key is unchanged
+   * and an anchor already exists. Returns the new state to persist, or null
+   * when cleared, or undefined when unchanged / pending.
+   */
+  setAnchor(key: string | undefined): AnchoredBaseline | null | undefined {
+    if (!key) {
+      const had =
+        this.anchor !== undefined || this.pendingAnchorKey !== undefined;
+      this.anchor = undefined;
+      this.pendingAnchorKey = undefined;
+      if (!had) {
+        return undefined;
+      }
+      this.anchorNeedsPersist = false;
+      return null;
+    }
+    if (this.anchor?.key === key || this.pendingAnchorKey === key) {
+      return undefined;
+    }
+    const current = this.latest();
+    if (!current) {
+      this.pendingAnchorKey = key;
+      this.anchor = undefined;
+      this.anchorNeedsPersist = false;
+      return undefined;
+    }
+    this.anchor = {
+      key,
+      baseline: { ...current },
+      cycleKey: this.cycleKey,
+    };
+    this.pendingAnchorKey = undefined;
+    this.anchorNeedsPersist = false;
+    return this.anchorState();
   }
 
   record(snapshot: UsageSnapshot, at = Date.now()): void {
@@ -198,6 +299,11 @@ export class UsageWindowTracker {
       this.samples = [];
       this.sessionBaseline = undefined;
       this.customBaseline = undefined;
+      if (this.anchor) {
+        this.anchor = undefined;
+        this.anchorNeedsPersist = true;
+      }
+      // Keep pendingAnchorKey so a dirty tree re-anchors after rollover.
     }
     if (cycleKey) {
       this.cycleKey = cycleKey;
@@ -206,6 +312,15 @@ export class UsageWindowTracker {
     if (!this.customBaseline) {
       this.customBaseline = sample;
       this.customBaselineNeedsPersist = true;
+    }
+    if (this.pendingAnchorKey) {
+      this.anchor = {
+        key: this.pendingAnchorKey,
+        baseline: sample,
+        cycleKey: this.cycleKey,
+      };
+      this.pendingAnchorKey = undefined;
+      this.anchorNeedsPersist = true;
     }
     this.samples.push(sample);
     this.prune(at);
@@ -224,6 +339,7 @@ export class UsageWindowTracker {
       lastHour: this.lastHour(at),
       session: this.session(at),
       usageSoFar: this.usageSoFar(at),
+      sinceLastCommit: this.sinceLastCommit(at),
     };
   }
 
@@ -262,6 +378,15 @@ export class UsageWindowTracker {
     return { ...delta(baseline, current, baseline.at), partial: false };
   }
 
+  sinceLastCommit(_at = Date.now()): UsageWindow | undefined {
+    const current = this.latest();
+    const baseline = this.anchor?.baseline;
+    if (!current || !baseline) {
+      return undefined;
+    }
+    return { ...delta(baseline, current, baseline.at), partial: false };
+  }
+
   /**
    * True when the new sample cannot belong to the same period as what we
    * already track: the cycle id changed, or cumulative usage went down.
@@ -288,6 +413,17 @@ export class UsageWindowTracker {
       return undefined;
     }
     return { baseline: { ...this.customBaseline }, cycleKey: this.cycleKey };
+  }
+
+  private anchorState(): AnchoredBaseline | undefined {
+    if (!this.anchor) {
+      return undefined;
+    }
+    return {
+      key: this.anchor.key,
+      baseline: { ...this.anchor.baseline },
+      cycleKey: this.anchor.cycleKey ?? this.cycleKey,
+    };
   }
 
   private latest(): UsageSample | undefined {

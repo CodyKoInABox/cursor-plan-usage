@@ -10,11 +10,14 @@ import {
   setSessionTokenSecret,
 } from './auth';
 import { CursorApiError, fetchUsageSnapshot } from './api';
+import { type GitAnchor, watchGitAnchor } from './git';
 import { UsageViewProvider } from './usageViewProvider';
 import type { UsageSnapshot } from './types';
 import {
+  parseAnchoredBaseline,
   parseUsageSamples,
   parseUsageSoFarState,
+  SINCE_LAST_COMMIT_BASELINE_KEY,
   USAGE_SAMPLES_KEY,
   USAGE_SO_FAR_BASELINE_KEY,
   UsageWindowTracker,
@@ -31,8 +34,8 @@ const BURST_WINDOW_MS = 2 * 60 * 1000;
 const BURST_POLL_MS = 30_000;
 const IDLE_POLL_MS = 3 * 60 * 1000;
 
-type RefreshReason = 'manual' | 'poll' | 'focus' | 'activity' | 'config';
-type StatusBarMode = 'absolute' | 'usageSoFar';
+type RefreshReason = 'manual' | 'poll' | 'focus' | 'activity' | 'config' | 'git';
+type StatusBarMode = 'absolute' | 'usageSoFar' | 'sinceLastCommit';
 
 let pollTimer: ReturnType<typeof setTimeout> | undefined;
 let debounceTimer: ReturnType<typeof setTimeout> | undefined;
@@ -44,7 +47,23 @@ let lastActivityAt = 0;
 let lastStatusKey = '';
 let windowFocused = true;
 let lastSnapshot: UsageSnapshot | undefined;
+let lastGitAnchor: GitAnchor | undefined;
 const windowTracker = new UsageWindowTracker();
+
+function stampGit(snapshot: UsageSnapshot): UsageSnapshot {
+  if (!lastGitAnchor || !snapshot.sinceLastCommit) {
+    const { git: _drop, ...rest } = snapshot;
+    return rest;
+  }
+  return {
+    ...snapshot,
+    git: {
+      repoName: lastGitAnchor.repoName,
+      branch: lastGitAnchor.branch,
+      dirtyFiles: lastGitAnchor.dirtyFiles,
+    },
+  };
+}
 
 export function activate(context: vscode.ExtensionContext): void {
   const provider = new UsageViewProvider(context.extensionUri);
@@ -73,6 +92,13 @@ export function activate(context: vscode.ExtensionContext): void {
     windowTracker.loadSamples(storedSamples);
   }
 
+  const storedAnchor = parseAnchoredBaseline(
+    context.workspaceState.get(SINCE_LAST_COMMIT_BASELINE_KEY)
+  );
+  if (storedAnchor) {
+    windowTracker.loadAnchor(storedAnchor);
+  }
+
   const persistWindowsIfNeeded = async (): Promise<void> => {
     const toSave = windowTracker.takeCustomBaselineIfNeedsPersist();
     if (toSave) {
@@ -82,15 +108,23 @@ export function activate(context: vscode.ExtensionContext): void {
     if (samples) {
       await context.globalState.update(USAGE_SAMPLES_KEY, samples);
     }
+    const anchor = windowTracker.takeAnchorIfNeedsPersist();
+    if (anchor !== undefined) {
+      await context.workspaceState.update(
+        SINCE_LAST_COMMIT_BASELINE_KEY,
+        anchor === null ? undefined : anchor
+      );
+    }
   };
 
   const applySnapshot = async (
     snapshot: UsageSnapshot,
     opts?: { force?: boolean }
   ): Promise<boolean> => {
-    lastSnapshot = snapshot;
+    const stamped = stampGit(snapshot);
+    lastSnapshot = stamped;
     await persistWindowsIfNeeded();
-    return provider.showUsage(snapshot, opts);
+    return provider.showUsage(stamped, opts);
   };
 
   const runRefresh = async (opts: {
@@ -136,7 +170,7 @@ export function activate(context: vscode.ExtensionContext): void {
         lastSuccessAt = Date.now();
         const changed = await applySnapshot(snapshot, { force: !opts.silent });
         if (changed || !opts.silent) {
-          updateStatusBar(statusBar, snapshot);
+          updateStatusBar(statusBar, lastSnapshot ?? snapshot);
         }
       } catch (err) {
         if (err instanceof CursorApiError && err.status === 401) {
@@ -146,7 +180,7 @@ export function activate(context: vscode.ExtensionContext): void {
           const snapshot = windowTracker.attachWindows(raw);
           lastSuccessAt = Date.now();
           await applySnapshot(snapshot, { force: true });
-          updateStatusBar(statusBar, snapshot);
+          updateStatusBar(statusBar, lastSnapshot ?? snapshot);
           return;
         }
         throw err;
@@ -178,7 +212,7 @@ export function activate(context: vscode.ExtensionContext): void {
     }
     await context.globalState.update(USAGE_SO_FAR_BASELINE_KEY, state);
     if (lastSnapshot) {
-      const updated = windowTracker.overlayWindows(lastSnapshot);
+      const updated = stampGit(windowTracker.overlayWindows(lastSnapshot));
       lastSnapshot = updated;
       provider.showUsage(updated, { force: true });
       updateStatusBar(statusBar, updated);
@@ -191,7 +225,11 @@ export function activate(context: vscode.ExtensionContext): void {
     reason: RefreshReason,
     opts?: { silent?: boolean; force?: boolean }
   ): void => {
-    const force = opts?.force === true || reason === 'manual' || reason === 'config';
+    const force =
+      opts?.force === true ||
+      reason === 'manual' ||
+      reason === 'config' ||
+      reason === 'git';
     const silent = opts?.silent ?? reason !== 'manual';
     void runRefresh({ silent, force });
   };
@@ -264,6 +302,31 @@ export function activate(context: vscode.ExtensionContext): void {
 
   const activityWatcher = watchAiTrackingDb(onAiActivity);
 
+  const gitWatcher = watchGitAnchor((anchor) => {
+    const prevKey = lastGitAnchor?.key;
+    lastGitAnchor = anchor;
+    const next = windowTracker.setAnchor(anchor?.key);
+    if (next === undefined && prevKey === (anchor?.key ?? undefined)) {
+      // Metadata-only change (e.g. dirty file count) — restamp UI if we have data.
+      if (lastSnapshot) {
+        const updated = stampGit(windowTracker.overlayWindows(lastSnapshot));
+        lastSnapshot = updated;
+        provider.showUsage(updated, { force: true });
+        updateStatusBar(statusBar, updated);
+      }
+      return;
+    }
+    if (next === null) {
+      void context.workspaceState.update(
+        SINCE_LAST_COMMIT_BASELINE_KEY,
+        undefined
+      );
+    } else if (next) {
+      void context.workspaceState.update(SINCE_LAST_COMMIT_BASELINE_KEY, next);
+    }
+    requestRefresh('git', { silent: true, force: true });
+  });
+
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider(UsageViewProvider.viewId, provider, {
       webviewOptions: { retainContextWhenHidden: true },
@@ -332,7 +395,8 @@ export function activate(context: vscode.ExtensionContext): void {
         }
       },
     },
-    activityWatcher
+    activityWatcher,
+    gitWatcher
   );
 
   void (async () => {
@@ -429,6 +493,30 @@ function updateStatusBar(
   const cm = Math.round(snapshot.autoPercentUsed);
   const om = Math.round(snapshot.apiPercentUsed);
   const soFar = snapshot.usageSoFar;
+  const sinceCommit = snapshot.sinceLastCommit;
+
+  if (mode === 'sinceLastCommit' && sinceCommit) {
+    const key = [
+      'sinceCommit',
+      snapshot.planName,
+      sinceCommit.autoPercentDelta,
+      sinceCommit.apiPercentDelta,
+      sinceCommit.since,
+    ].join('|');
+    if (key === lastStatusKey) {
+      return;
+    }
+    lastStatusKey = key;
+    item.text = `$(git-commit) CM +${sinceCommit.autoPercentDelta}% · OM +${sinceCommit.apiPercentDelta}%`;
+    item.tooltip = [
+      `Cursor Plan Usage — ${snapshot.planName}`,
+      `Since last commit (since ${fmtSinceClock(sinceCommit.since)})`,
+      `Cursor Models +${sinceCommit.autoPercentDelta}%`,
+      `Other Models +${sinceCommit.apiPercentDelta}%`,
+      `Cycle total — CM ${cm}% · OM ${om}%`,
+    ].join('\n');
+    return;
+  }
 
   if (mode === 'usageSoFar' && soFar) {
     const key = [

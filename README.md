@@ -15,10 +15,11 @@ Live **Cursor Models** and **Other Models** percentages in a dockable sidebar an
 ## Features
 
 - **Sidebar panel** — CM / OM usage at a glance in the activity bar
-- **Status bar chip** — `CM n% · OM n%` always visible while you work, or your **Usage so far** deltas instead
+- **Status bar chip** — `CM n% · OM n%` always visible while you work, or **Usage so far** / **Since last commit** deltas instead
 - **Billing cycle** — progress through the period, end time, and a simple projection
 - **Session deltas** — last-hour usage persists across reloads (while sampling in the prior hour); IDE-session usage is since this Cursor window opened
 - **Usage so far** — custom resettable window that persists across reloads; track any period you care about. Auto-resets when a new billing cycle starts
+- **Since last commit** — plan usage while your working tree is dirty; resets on each commit (HEAD move). Hidden when the tree is clean
 - **Smart refresh** — updates on focus and AI activity; pauses when Cursor is unfocused
 
 
@@ -66,7 +67,7 @@ After install, open the **Plan Usage** icon in the activity bar, or run **Plan U
 | --- | --- | --- |
 | `cursorPlanUsage.pollIntervalSeconds` | `0` | Idle poll interval (seconds) while focused. `0` = adaptive (30s burst for 2 min after AI activity, then 3 min). Polling pauses while unfocused. |
 | `cursorPlanUsage.refreshOnAiActivity` | `true` | Refresh when Cursor’s local AI tracking DB updates |
-| `cursorPlanUsage.statusBarMode` | `absolute` | `absolute` shows cycle totals (`CM 45% · OM 20%`); `usageSoFar` shows deltas since your last Reset (`CM +4% · OM +2%`) |
+| `cursorPlanUsage.statusBarMode` | `absolute` | `absolute` shows cycle totals (`CM 45% · OM 20%`); `usageSoFar` shows deltas since your last Reset (`CM +4% · OM +2%`); `sinceLastCommit` shows deltas since HEAD while dirty (`CM +1% · OM +0%`) |
 | `cursorPlanUsage.apiBaseUrl` | `https://api2.cursor.sh` | Dashboard API base URL |
 
 There is no `sessionToken` setting — use the Set / Clear Session Token commands instead.
@@ -77,7 +78,7 @@ There is no `sessionToken` setting — use the Set / Clear Session Token command
 | --- | --- |
 | **No token found** | Sign in to Cursor, or run **Plan Usage: Set Session Token** with a valid session token / JWT. |
 | **401 / unauthorized** | Re-sign into Cursor, or set a fresh token via **Plan Usage: Set Session Token**. |
-| **Remote-SSH / WSL** | The extension runs in the **local** Cursor UI and uses the local session DB. If usage looks wrong in a remote window, use a local window or set a session token override. |
+| **Remote-SSH / WSL** | The extension runs in the **local** Cursor UI and uses the local session DB. If usage looks wrong in a remote window, use a local window or set a session token override. **Since last commit** needs the built-in git API and stays hidden when it is unavailable in remote UI hosts. |
 
 ## Notes
 
