@@ -48,6 +48,7 @@
       year: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
+      hour12: false,
     });
   }
 
@@ -139,6 +140,7 @@
       const clock = {
         hour: '2-digit',
         minute: '2-digit',
+        hour12: false,
       };
 
       if (kind === 'hour') {
@@ -156,11 +158,7 @@
         return { text: 'rolling 1h' };
       }
 
-      if (kind === 'session') {
-        return { text: `since ${d.toLocaleTimeString(undefined, clock)}` };
-      }
-
-      if (kind === 'custom') {
+      if (kind === 'session' || kind === 'custom') {
         const now = new Date();
         const sameDay =
           d.getFullYear() === now.getFullYear() &&

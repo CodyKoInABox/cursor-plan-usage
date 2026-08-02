@@ -386,7 +386,24 @@ function fmtSinceClock(iso: string): string {
   if (Number.isNaN(d.getTime())) {
     return 'reset';
   }
-  return d.toLocaleString();
+  const clock = {
+    hour: '2-digit' as const,
+    minute: '2-digit' as const,
+    hour12: false as const,
+  };
+  const now = new Date();
+  const sameDay =
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate();
+  if (sameDay) {
+    return d.toLocaleTimeString(undefined, clock);
+  }
+  return d.toLocaleString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    ...clock,
+  });
 }
 
 function updateStatusBar(
