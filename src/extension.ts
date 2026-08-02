@@ -10,14 +10,16 @@ import {
   setSessionTokenSecret,
 } from './auth';
 import { CursorApiError, fetchUsageSnapshot } from './api';
-import { type GitAnchor, watchGitAnchor } from './git';
+import { type GitContext, watchGitContext } from './git';
 import { UsageViewProvider } from './usageViewProvider';
 import type { UsageSnapshot } from './types';
 import {
   parseAnchoredBaseline,
+  parseBranchBaselinesState,
   parseUsageSamples,
   parseUsageSoFarState,
   SINCE_LAST_COMMIT_BASELINE_KEY,
+  THIS_BRANCH_BASELINES_KEY,
   USAGE_SAMPLES_KEY,
   USAGE_SO_FAR_BASELINE_KEY,
   UsageWindowTracker,
@@ -35,7 +37,7 @@ const BURST_POLL_MS = 30_000;
 const IDLE_POLL_MS = 3 * 60 * 1000;
 
 type RefreshReason = 'manual' | 'poll' | 'focus' | 'activity' | 'config' | 'git';
-type StatusBarMode = 'absolute' | 'usageSoFar' | 'sinceLastCommit';
+type StatusBarMode = 'absolute' | 'usageSoFar' | 'sinceLastCommit' | 'thisBranch';
 
 let pollTimer: ReturnType<typeof setTimeout> | undefined;
 let debounceTimer: ReturnType<typeof setTimeout> | undefined;
@@ -47,24 +49,32 @@ let lastActivityAt = 0;
 let lastStatusKey = '';
 let windowFocused = true;
 let lastSnapshot: UsageSnapshot | undefined;
-let lastGitAnchor: GitAnchor | undefined;
-/** False until watchGitAnchor emits once — avoids flashing a stale persisted window. */
+let lastGitContext: GitContext | undefined;
+/** False until watchGitContext emits once — avoids flashing stale git windows. */
 let gitReady = false;
 const windowTracker = new UsageWindowTracker();
 
 function stampGit(snapshot: UsageSnapshot): UsageSnapshot {
-  if (!gitReady || !lastGitAnchor || !snapshot.sinceLastCommit) {
-    const { git: _g, sinceLastCommit: _s, ...rest } = snapshot;
+  if (!gitReady || !lastGitContext) {
+    const { git: _g, sinceLastCommit: _s, thisBranch: _t, ...rest } = snapshot;
     return rest;
   }
-  return {
+  const next: UsageSnapshot = {
     ...snapshot,
     git: {
-      repoName: lastGitAnchor.repoName,
-      branch: lastGitAnchor.branch,
-      dirtyFiles: lastGitAnchor.dirtyFiles,
+      repoName: lastGitContext.repoName,
+      branch: lastGitContext.branchName,
+      dirtyFiles: lastGitContext.dirtyFiles,
+      isDefaultBranch: lastGitContext.isDefaultBranch,
     },
   };
+  if (!lastGitContext.sinceLastCommitKey) {
+    delete next.sinceLastCommit;
+  }
+  if (!lastGitContext.thisBranchKey) {
+    delete next.thisBranch;
+  }
+  return next;
 }
 
 export function activate(context: vscode.ExtensionContext): void {
@@ -94,10 +104,12 @@ export function activate(context: vscode.ExtensionContext): void {
     windowTracker.loadSamples(storedSamples);
   }
 
-  // Defer loading the since-last-commit anchor until git has spoken once
-  // (avoids a flash when the tree is clean but workspaceState is stale).
+  // Defer loading git-derived baselines until git has spoken once.
   let pendingStoredAnchor = parseAnchoredBaseline(
     context.workspaceState.get(SINCE_LAST_COMMIT_BASELINE_KEY)
+  );
+  let pendingStoredBranches = parseBranchBaselinesState(
+    context.workspaceState.get(THIS_BRANCH_BASELINES_KEY)
   );
 
   const persistWindowsIfNeeded = async (): Promise<void> => {
@@ -114,6 +126,13 @@ export function activate(context: vscode.ExtensionContext): void {
       await context.workspaceState.update(
         SINCE_LAST_COMMIT_BASELINE_KEY,
         anchor === null ? undefined : anchor
+      );
+    }
+    const branches = windowTracker.takeBranchBaselinesIfNeedsPersist();
+    if (branches !== undefined) {
+      await context.workspaceState.update(
+        THIS_BRANCH_BASELINES_KEY,
+        branches === null ? undefined : branches
       );
     }
   };
@@ -303,15 +322,21 @@ export function activate(context: vscode.ExtensionContext): void {
 
   const activityWatcher = watchAiTrackingDb(onAiActivity);
 
-  const gitWatcher = watchGitAnchor((anchor) => {
+  const gitWatcher = watchGitContext((ctx) => {
     const firstEmit = !gitReady;
     gitReady = true;
 
     if (firstEmit) {
-      if (pendingStoredAnchor && anchor?.key === pendingStoredAnchor.key) {
+      if (pendingStoredBranches) {
+        windowTracker.loadBranchBaselines(pendingStoredBranches);
+        pendingStoredBranches = undefined;
+      }
+      if (
+        pendingStoredAnchor &&
+        ctx?.sinceLastCommitKey === pendingStoredAnchor.key
+      ) {
         windowTracker.loadAnchor(pendingStoredAnchor);
       } else if (pendingStoredAnchor) {
-        // Stale: tree clean, no git, or HEAD moved while we were closed.
         void context.workspaceState.update(
           SINCE_LAST_COMMIT_BASELINE_KEY,
           undefined
@@ -320,11 +345,43 @@ export function activate(context: vscode.ExtensionContext): void {
       pendingStoredAnchor = undefined;
     }
 
-    const prevKey = lastGitAnchor?.key;
-    lastGitAnchor = anchor;
-    const next = windowTracker.setAnchor(anchor?.key);
-    if (next === undefined && prevKey === (anchor?.key ?? undefined) && !firstEmit) {
-      // Metadata-only change (e.g. dirty file count) — restamp UI if we have data.
+    const prevCommitKey = lastGitContext?.sinceLastCommitKey;
+    const prevBranchKey = lastGitContext?.thisBranchKey;
+    lastGitContext = ctx;
+
+    const commitNext = windowTracker.setAnchor(ctx?.sinceLastCommitKey);
+    const branchChanged = windowTracker.setThisBranchKey(ctx?.thisBranchKey);
+
+    if (commitNext === null) {
+      void context.workspaceState.update(
+        SINCE_LAST_COMMIT_BASELINE_KEY,
+        undefined
+      );
+    } else if (commitNext) {
+      void context.workspaceState.update(SINCE_LAST_COMMIT_BASELINE_KEY, commitNext);
+    }
+    if (branchChanged) {
+      const branches = windowTracker.takeBranchBaselinesIfNeedsPersist();
+      if (branches !== undefined) {
+        void context.workspaceState.update(
+          THIS_BRANCH_BASELINES_KEY,
+          branches === null ? undefined : branches
+        );
+      }
+    }
+
+    const commitKeySame =
+      prevCommitKey === (ctx?.sinceLastCommitKey ?? undefined);
+    const branchKeySame =
+      prevBranchKey === (ctx?.thisBranchKey ?? undefined);
+    const metadataOnly =
+      !firstEmit &&
+      commitNext === undefined &&
+      !branchChanged &&
+      commitKeySame &&
+      branchKeySame;
+
+    if (metadataOnly) {
       if (lastSnapshot) {
         const updated = stampGit(windowTracker.overlayWindows(lastSnapshot));
         lastSnapshot = updated;
@@ -333,22 +390,24 @@ export function activate(context: vscode.ExtensionContext): void {
       }
       return;
     }
-    if (next === null) {
-      void context.workspaceState.update(
-        SINCE_LAST_COMMIT_BASELINE_KEY,
-        undefined
-      );
-    } else if (next) {
-      void context.workspaceState.update(SINCE_LAST_COMMIT_BASELINE_KEY, next);
-    }
-    // First emit with a restored matching anchor: restamp without forcing an API hit.
-    if (firstEmit && next === undefined && lastSnapshot) {
+
+    if (
+      firstEmit &&
+      commitNext === undefined &&
+      !branchChanged &&
+      lastSnapshot
+    ) {
       const updated = stampGit(windowTracker.overlayWindows(lastSnapshot));
       lastSnapshot = updated;
       provider.showUsage(updated, { force: true });
       updateStatusBar(statusBar, updated);
+      // Still refresh if we activated a branch pending samples / need live baseline.
+      if (ctx?.thisBranchKey || ctx?.sinceLastCommitKey) {
+        requestRefresh('git', { silent: true, force: true });
+      }
       return;
     }
+
     requestRefresh('git', { silent: true, force: true });
   });
 
@@ -519,6 +578,31 @@ function updateStatusBar(
   const om = Math.round(snapshot.apiPercentUsed);
   const soFar = snapshot.usageSoFar;
   const sinceCommit = snapshot.sinceLastCommit;
+  const thisBranch = snapshot.thisBranch;
+
+  if (mode === 'thisBranch' && thisBranch) {
+    const key = [
+      'thisBranch',
+      snapshot.planName,
+      thisBranch.autoPercentDelta,
+      thisBranch.apiPercentDelta,
+      thisBranch.since,
+      snapshot.git?.branch ?? '',
+    ].join('|');
+    if (key === lastStatusKey) {
+      return;
+    }
+    lastStatusKey = key;
+    item.text = `$(git-branch) CM +${thisBranch.autoPercentDelta}% · OM +${thisBranch.apiPercentDelta}%`;
+    item.tooltip = [
+      `Cursor Plan Usage — ${snapshot.planName}`,
+      `This branch${snapshot.git?.branch ? ` (${snapshot.git.branch})` : ''} since ${fmtSinceClock(thisBranch.since)}`,
+      `Cursor Models +${thisBranch.autoPercentDelta}%`,
+      `Other Models +${thisBranch.apiPercentDelta}%`,
+      `Cycle total — CM ${cm}% · OM ${om}%`,
+    ].join('\n');
+    return;
+  }
 
   if (mode === 'sinceLastCommit' && sinceCommit) {
     const key = [

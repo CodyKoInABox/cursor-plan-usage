@@ -19,11 +19,14 @@ export interface UsageSnapshot {
   usageSoFar?: UsageWindow;
   /** Usage since HEAD while the working tree is dirty. */
   sinceLastCommit?: UsageWindow;
-  /** Active git repo metadata for the since-last-commit label. */
+  /** Usage while the current feature branch was checked out (active-time). */
+  thisBranch?: UsageWindow;
+  /** Active git repo metadata for git-derived windows. */
   git?: {
     repoName: string;
     branch?: string;
     dirtyFiles: number;
+    isDefaultBranch?: boolean;
   };
 }
 

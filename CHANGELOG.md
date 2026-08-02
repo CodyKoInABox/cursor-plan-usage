@@ -5,7 +5,8 @@
 ### Features
 
 - Added **Since last commit** usage window: plan % burned while the working tree is dirty, re-anchored on every HEAD move (automatic; no manual reset)
-- Optional status bar mode `sinceLastCommit` (`CM +n% · OM +n%`)
+- Added **This branch** usage window: plan % while a feature branch is checked out, with active-time pause/resume so spend on other branches does not inflate the counter (hidden on the default branch)
+- Optional status bar modes `sinceLastCommit` and `thisBranch`
 
 ## 0.2.0
 

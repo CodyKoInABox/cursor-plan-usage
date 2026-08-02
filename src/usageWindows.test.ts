@@ -4,8 +4,10 @@ import type { UsageSnapshot } from './types';
 import {
   isUsageSample,
   parseAnchoredBaseline,
+  parseBranchBaselinesState,
   parseUsageSamples,
   parseUsageSoFarState,
+  THIS_BRANCH_MAP_CAP,
   UsageWindowTracker,
 } from './usageWindows';
 
@@ -78,6 +80,37 @@ describe('persisted usage state parsing', () => {
     });
     expect(parseAnchoredBaseline({ key: '', baseline: sample })).toBeUndefined();
     expect(parseAnchoredBaseline({ key: '/repo@abc', baseline: {} })).toBeUndefined();
+  });
+
+  it('parses branch baseline maps and rejects garbage', () => {
+    expect(parseBranchBaselinesState(null)).toBeUndefined();
+    expect(parseBranchBaselinesState({ entries: [] })).toBeUndefined();
+    expect(
+      parseBranchBaselinesState({
+        cycleKey: 'start:2026-07-01',
+        activeKey: '/repo@feat',
+        entries: {
+          '/repo@feat': {
+            accumulatedAuto: 1.5,
+            accumulatedApi: 2,
+            startedAt: BASE_TIME,
+            lastSeenAt: BASE_TIME + 1000,
+          },
+          bad: { accumulatedAuto: 'x' },
+        },
+      })
+    ).toEqual({
+      cycleKey: 'start:2026-07-01',
+      activeKey: '/repo@feat',
+      entries: {
+        '/repo@feat': {
+          accumulatedAuto: 1.5,
+          accumulatedApi: 2,
+          startedAt: BASE_TIME,
+          lastSeenAt: BASE_TIME + 1000,
+        },
+      },
+    });
   });
 });
 
@@ -316,5 +349,117 @@ describe('UsageWindowTracker', () => {
 
     expect(tracker.sinceLastCommit()).toBeUndefined();
     expect(tracker.takeAnchorIfNeedsPersist()).toBeNull();
+  });
+
+  it('tracks this-branch active-time with pause and resume', () => {
+    const tracker = new UsageWindowTracker();
+    tracker.record(snapshot(10, 20), BASE_TIME);
+    expect(tracker.setThisBranchKey('/repo@feat', BASE_TIME)).toBe(true);
+    expect(tracker.thisBranch()).toMatchObject({
+      autoPercentDelta: 0,
+      apiPercentDelta: 0,
+      since: new Date(BASE_TIME).toISOString(),
+    });
+
+    tracker.record(snapshot(12, 23), BASE_TIME + MINUTE_MS);
+    expect(tracker.thisBranch()).toMatchObject({
+      autoPercentDelta: 2,
+      apiPercentDelta: 3,
+    });
+
+    // Leave feature branch (e.g. checkout main) — freeze accumulated.
+    expect(tracker.setThisBranchKey(undefined, BASE_TIME + 2 * MINUTE_MS)).toBe(
+      true
+    );
+    expect(tracker.thisBranch()).toBeUndefined();
+
+    // Usage while away must not count.
+    tracker.record(snapshot(20, 40), BASE_TIME + 3 * MINUTE_MS);
+    expect(tracker.thisBranch()).toBeUndefined();
+
+    // Return — resume at frozen 2/3, then only new active spend adds.
+    expect(
+      tracker.setThisBranchKey('/repo@feat', BASE_TIME + 4 * MINUTE_MS)
+    ).toBe(true);
+    expect(tracker.thisBranch()).toMatchObject({
+      autoPercentDelta: 2,
+      apiPercentDelta: 3,
+    });
+    tracker.record(snapshot(21, 41), BASE_TIME + 5 * MINUTE_MS);
+    expect(tracker.thisBranch()).toMatchObject({
+      autoPercentDelta: 3,
+      apiPercentDelta: 4,
+    });
+  });
+
+  it('restores accumulated when switching between feature branches', () => {
+    const tracker = new UsageWindowTracker();
+    tracker.record(snapshot(10, 10), BASE_TIME);
+    tracker.setThisBranchKey('/repo@a', BASE_TIME);
+    tracker.record(snapshot(13, 12), BASE_TIME + MINUTE_MS);
+    expect(tracker.thisBranch()?.autoPercentDelta).toBe(3);
+
+    tracker.setThisBranchKey('/repo@b', BASE_TIME + 2 * MINUTE_MS);
+    tracker.record(snapshot(15, 14), BASE_TIME + 3 * MINUTE_MS);
+    expect(tracker.thisBranch()).toMatchObject({
+      autoPercentDelta: 2,
+      apiPercentDelta: 2,
+    });
+
+    tracker.setThisBranchKey('/repo@a', BASE_TIME + 4 * MINUTE_MS);
+    expect(tracker.thisBranch()).toMatchObject({
+      autoPercentDelta: 3,
+      apiPercentDelta: 2,
+    });
+  });
+
+  it('applies a pending this-branch key on the first sample', () => {
+    const tracker = new UsageWindowTracker();
+    expect(tracker.setThisBranchKey('/repo@feat', BASE_TIME)).toBe(false);
+    expect(tracker.thisBranch()).toBeUndefined();
+    tracker.record(snapshot(5, 5), BASE_TIME);
+    expect(tracker.thisBranch()).toMatchObject({
+      autoPercentDelta: 0,
+      apiPercentDelta: 0,
+    });
+  });
+
+  it('wipes this-branch map on billing cycle rollover', () => {
+    const tracker = new UsageWindowTracker();
+    tracker.record(snapshot(50, 50), BASE_TIME);
+    tracker.setThisBranchKey('/repo@feat', BASE_TIME);
+    tracker.record(snapshot(55, 55), BASE_TIME + MINUTE_MS);
+    expect(tracker.thisBranch()?.autoPercentDelta).toBe(5);
+
+    tracker.record(
+      snapshot(1, 1, {
+        billingCycleStart: '2026-08-01',
+        billingCycleEnd: '2026-09-01',
+      }),
+      BASE_TIME + 2 * MINUTE_MS
+    );
+    expect(tracker.thisBranch()).toBeUndefined();
+    expect(tracker.takeBranchBaselinesIfNeedsPersist()).toBeNull();
+  });
+
+  it('evicts the oldest paused branch when the map exceeds the cap', () => {
+    const tracker = new UsageWindowTracker();
+    tracker.record(snapshot(1, 1), BASE_TIME);
+
+    for (let i = 0; i < THIS_BRANCH_MAP_CAP; i++) {
+      const t = BASE_TIME + i * MINUTE_MS;
+      tracker.setThisBranchKey(`/repo@b${i}`, t);
+      tracker.record(snapshot(1 + i * 0.01, 1), t + 1);
+      tracker.setThisBranchKey(undefined, t + 2);
+    }
+
+    // Map is at cap with all paused. Entering a new branch evicts oldest.
+    const enterAt = BASE_TIME + THIS_BRANCH_MAP_CAP * MINUTE_MS;
+    tracker.setThisBranchKey('/repo@new', enterAt);
+    const persisted = tracker.takeBranchBaselinesIfNeedsPersist();
+    expect(persisted).toBeDefined();
+    expect(Object.keys(persisted!.entries).length).toBe(THIS_BRANCH_MAP_CAP);
+    expect(persisted!.entries['/repo@b0']).toBeUndefined();
+    expect(persisted!.entries['/repo@new']).toBeDefined();
   });
 });

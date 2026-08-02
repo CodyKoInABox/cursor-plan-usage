@@ -112,12 +112,14 @@
           "enum": [
             "absolute",
             "usageSoFar",
-            "sinceLastCommit"
+            "sinceLastCommit",
+            "thisBranch"
           ],
           "enumDescriptions": [
             "Total usage in the current billing cycle (CM 45% · OM 20%).",
             "Usage since you last pressed Reset in the sidebar (CM +4% · OM +2%).",
-            "Usage since last commit while the working tree is dirty (CM +1% · OM +0%)."
+            "Usage since last commit while the working tree is dirty (CM +1% · OM +0%).",
+            "Usage while the current feature branch was checked out (CM +3% · OM +1%)."
           ],
           "description": "What the status bar chip shows."
         },

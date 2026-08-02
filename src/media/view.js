@@ -259,6 +259,36 @@
     );
   }
 
+  function thisBranchSubtitle(w, git) {
+    const tip =
+      'Plan usage while this branch was checked out (since we first saw it). Not attributed to commits or files.';
+    const since = sinceInfo(w, 'custom');
+    const parts = [];
+    if (git && git.branch) parts.push(String(git.branch));
+    if (since && since.text) parts.push(since.text);
+    return { text: parts.join(' · '), tip };
+  }
+
+  function renderThisBranch(w, git) {
+    if (!w) return '';
+    const sub = thisBranchSubtitle(w, git);
+    return (
+      `<hr class="divider" />` +
+      `<section class="section section-this-branch">` +
+      `<div class="section-head">` +
+      `<h2 class="section-title" title="${esc(sub.tip)}">This branch</h2>` +
+      `</div>` +
+      (sub.text
+        ? `<p class="subtitle usage-so-far-since" title="${esc(sub.tip)}">${esc(sub.text)}</p>`
+        : '') +
+      `<div class="window-stats window-stats-block">` +
+      `<span class="window-stat window-stat-cm">CM ${esc(fmtDeltaPct(w.autoPercentDelta))}</span>` +
+      `<span class="window-stat window-stat-om">OM ${esc(fmtDeltaPct(w.apiPercentDelta))}</span>` +
+      `</div>` +
+      `</section>`
+    );
+  }
+
   function renderLoading() {
     app.innerHTML = '<div class="state state-loading">Loading plan usage…</div>';
   }
@@ -306,6 +336,7 @@
       data.sinceLastCommit,
       data.git
     );
+    const thisBranch = renderThisBranch(data.thisBranch, data.git);
 
     const windows =
       data.lastHour || data.session
@@ -343,6 +374,7 @@
       ) +
       usageSoFar +
       sinceLastCommit +
+      thisBranch +
       windows +
       `<hr class="divider" />` +
       `<div class="footer">` +

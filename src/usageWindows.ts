@@ -32,6 +32,32 @@ export const USAGE_SAMPLES_KEY = 'cursorPlanUsage.usageSamples';
 export const SINCE_LAST_COMMIT_BASELINE_KEY =
   'cursorPlanUsage.sinceLastCommitBaseline';
 
+/** workspaceState key for per-branch active-time baselines. */
+export const THIS_BRANCH_BASELINES_KEY = 'cursorPlanUsage.thisBranchBaselines';
+
+/** Max remembered feature-branch entries (LRU by lastSeenAt). */
+export const THIS_BRANCH_MAP_CAP = 40;
+
+/**
+ * Per-branch active-time accounting. Usage while checked out elsewhere does
+ * not inflate the delta.
+ */
+export interface BranchEntry {
+  accumulatedAuto: number;
+  accumulatedApi: number;
+  /** Set only while this branch is currently checked out. */
+  liveBaseline?: UsageSample;
+  /** First observation time (ms). */
+  startedAt: number;
+  lastSeenAt: number;
+}
+
+export interface BranchBaselinesState {
+  cycleKey?: string;
+  activeKey?: string;
+  entries: Record<string, BranchEntry>;
+}
+
 const HOUR_MS = 60 * 60 * 1000;
 /** Keep slightly more than 1h so we always have a pre-window baseline. */
 const RETAIN_MS = HOUR_MS + 15 * 60 * 1000;
@@ -150,6 +176,72 @@ export function parseAnchoredBaseline(
   };
 }
 
+function parseBranchEntry(value: unknown): BranchEntry | undefined {
+  if (!value || typeof value !== 'object') {
+    return undefined;
+  }
+  const v = value as Record<string, unknown>;
+  if (
+    typeof v.accumulatedAuto !== 'number' ||
+    !Number.isFinite(v.accumulatedAuto) ||
+    typeof v.accumulatedApi !== 'number' ||
+    !Number.isFinite(v.accumulatedApi) ||
+    typeof v.startedAt !== 'number' ||
+    !Number.isFinite(v.startedAt) ||
+    typeof v.lastSeenAt !== 'number' ||
+    !Number.isFinite(v.lastSeenAt)
+  ) {
+    return undefined;
+  }
+  const entry: BranchEntry = {
+    accumulatedAuto: v.accumulatedAuto,
+    accumulatedApi: v.accumulatedApi,
+    startedAt: v.startedAt,
+    lastSeenAt: v.lastSeenAt,
+  };
+  if (v.liveBaseline !== undefined) {
+    if (!isUsageSample(v.liveBaseline)) {
+      return undefined;
+    }
+    entry.liveBaseline = {
+      at: v.liveBaseline.at,
+      autoPercentUsed: v.liveBaseline.autoPercentUsed,
+      apiPercentUsed: v.liveBaseline.apiPercentUsed,
+    };
+  }
+  return entry;
+}
+
+/** Reads persisted per-branch baselines; skips malformed entries. */
+export function parseBranchBaselinesState(
+  value: unknown
+): BranchBaselinesState | undefined {
+  if (!value || typeof value !== 'object') {
+    return undefined;
+  }
+  const v = value as Record<string, unknown>;
+  if (!v.entries || typeof v.entries !== 'object' || Array.isArray(v.entries)) {
+    return undefined;
+  }
+  const entries: Record<string, BranchEntry> = {};
+  for (const [key, raw] of Object.entries(
+    v.entries as Record<string, unknown>
+  )) {
+    if (!key) {
+      continue;
+    }
+    const entry = parseBranchEntry(raw);
+    if (entry) {
+      entries[key] = entry;
+    }
+  }
+  return {
+    cycleKey: typeof v.cycleKey === 'string' ? v.cycleKey : undefined,
+    activeKey: typeof v.activeKey === 'string' ? v.activeKey : undefined,
+    entries,
+  };
+}
+
 /**
  * Sample ring for last-hour (persisted) and IDE-session (in-memory) deltas.
  * Absolute spend/% come from GetCurrentPeriodUsage; windows are local diffs.
@@ -169,6 +261,12 @@ export class UsageWindowTracker {
   private pendingAnchorKey?: string;
   /** True when anchor was auto-applied and not yet persisted. */
   private anchorNeedsPersist = false;
+  /** Per-branch active-time map. */
+  private branchEntries: Record<string, BranchEntry> = {};
+  private activeBranchKey?: string;
+  /** Branch key requested before any sample; applied on next record(). */
+  private pendingBranchKey?: string;
+  private branchNeedsPersist = false;
 
   loadCustomBaseline(state: UsageSoFarState): void {
     this.customBaseline = { ...state.baseline };
@@ -184,6 +282,29 @@ export class UsageWindowTracker {
     };
     this.pendingAnchorKey = undefined;
     this.anchorNeedsPersist = false;
+  }
+
+  /**
+   * Restore paused/active branch map. Does not auto-activate a key — caller
+   * should setThisBranchKey after git is ready.
+   */
+  loadBranchBaselines(state: BranchBaselinesState): void {
+    this.branchEntries = {};
+    for (const [key, entry] of Object.entries(state.entries)) {
+      this.branchEntries[key] = {
+        accumulatedAuto: entry.accumulatedAuto,
+        accumulatedApi: entry.accumulatedApi,
+        startedAt: entry.startedAt,
+        lastSeenAt: entry.lastSeenAt,
+        // Never restore liveBaseline across reloads — re-enter via setThisBranchKey.
+      };
+    }
+    if (state.cycleKey) {
+      this.cycleKey = state.cycleKey;
+    }
+    this.activeBranchKey = undefined;
+    this.pendingBranchKey = undefined;
+    this.branchNeedsPersist = false;
   }
 
   /**
@@ -237,6 +358,22 @@ export class UsageWindowTracker {
   }
 
   /**
+   * If the branch map changed, return a copy to persist (or null when empty
+   * after clear) and clear the dirty flag.
+   */
+  takeBranchBaselinesIfNeedsPersist(): BranchBaselinesState | null | undefined {
+    if (!this.branchNeedsPersist) {
+      return undefined;
+    }
+    this.branchNeedsPersist = false;
+    const state = this.branchState();
+    if (!state || Object.keys(state.entries).length === 0) {
+      return null;
+    }
+    return state;
+  }
+
+  /**
    * Reset "Usage so far" to the latest sample. Returns the new state, or
    * undefined if there are no samples yet.
    */
@@ -287,6 +424,46 @@ export class UsageWindowTracker {
     return this.anchorState();
   }
 
+  /**
+   * Activate or pause "This branch" tracking. Pausing freezes accumulated
+   * spend so usage on other branches does not inflate the delta.
+   * Returns true when the map changed and should be persisted.
+   */
+  setThisBranchKey(key: string | undefined, at = Date.now()): boolean {
+    if (key === this.activeBranchKey) {
+      if (key && this.branchEntries[key]) {
+        this.branchEntries[key].lastSeenAt = at;
+      }
+      return false;
+    }
+
+    // Same key already pending with no samples yet.
+    if (key && this.pendingBranchKey === key && !this.activeBranchKey) {
+      return false;
+    }
+
+    const current = this.latest();
+    this.pauseActiveBranch(current, at);
+
+    if (!key) {
+      this.pendingBranchKey = undefined;
+      this.activeBranchKey = undefined;
+      this.branchNeedsPersist = true;
+      return true;
+    }
+
+    if (!current) {
+      this.pendingBranchKey = key;
+      this.activeBranchKey = undefined;
+      return false;
+    }
+
+    this.enterBranch(key, current, at);
+    this.pendingBranchKey = undefined;
+    this.branchNeedsPersist = true;
+    return true;
+  }
+
   record(snapshot: UsageSnapshot, at = Date.now()): void {
     const sample: UsageSample = {
       at,
@@ -303,7 +480,12 @@ export class UsageWindowTracker {
         this.anchor = undefined;
         this.anchorNeedsPersist = true;
       }
-      // Keep pendingAnchorKey so a dirty tree re-anchors after rollover.
+      if (Object.keys(this.branchEntries).length || this.activeBranchKey) {
+        this.branchEntries = {};
+        this.activeBranchKey = undefined;
+        this.branchNeedsPersist = true;
+      }
+      // Keep pendingAnchorKey / pendingBranchKey so dirty/feature re-seed after rollover.
     }
     if (cycleKey) {
       this.cycleKey = cycleKey;
@@ -321,6 +503,11 @@ export class UsageWindowTracker {
       };
       this.pendingAnchorKey = undefined;
       this.anchorNeedsPersist = true;
+    }
+    if (this.pendingBranchKey) {
+      this.enterBranch(this.pendingBranchKey, sample, at);
+      this.pendingBranchKey = undefined;
+      this.branchNeedsPersist = true;
     }
     this.samples.push(sample);
     this.prune(at);
@@ -340,6 +527,7 @@ export class UsageWindowTracker {
       session: this.session(at),
       usageSoFar: this.usageSoFar(at),
       sinceLastCommit: this.sinceLastCommit(at),
+      thisBranch: this.thisBranch(at),
     };
   }
 
@@ -387,6 +575,32 @@ export class UsageWindowTracker {
     return { ...delta(baseline, current, baseline.at), partial: false };
   }
 
+  thisBranch(_at = Date.now()): UsageWindow | undefined {
+    const key = this.activeBranchKey;
+    if (!key) {
+      return undefined;
+    }
+    const entry = this.branchEntries[key];
+    const current = this.latest();
+    if (!entry || !current || !entry.liveBaseline) {
+      return undefined;
+    }
+    const liveAuto = Math.max(
+      0,
+      current.autoPercentUsed - entry.liveBaseline.autoPercentUsed
+    );
+    const liveApi = Math.max(
+      0,
+      current.apiPercentUsed - entry.liveBaseline.apiPercentUsed
+    );
+    return {
+      autoPercentDelta: round1(entry.accumulatedAuto + liveAuto),
+      apiPercentDelta: round1(entry.accumulatedApi + liveApi),
+      since: new Date(entry.startedAt).toISOString(),
+      partial: false,
+    };
+  }
+
   /**
    * True when the new sample cannot belong to the same period as what we
    * already track: the cycle id changed, or cumulative usage went down.
@@ -424,6 +638,91 @@ export class UsageWindowTracker {
       baseline: { ...this.anchor.baseline },
       cycleKey: this.anchor.cycleKey ?? this.cycleKey,
     };
+  }
+
+  private branchState(): BranchBaselinesState {
+    const entries: Record<string, BranchEntry> = {};
+    for (const [key, entry] of Object.entries(this.branchEntries)) {
+      entries[key] = {
+        accumulatedAuto: entry.accumulatedAuto,
+        accumulatedApi: entry.accumulatedApi,
+        startedAt: entry.startedAt,
+        lastSeenAt: entry.lastSeenAt,
+        // Persist without liveBaseline — resume sets a fresh one.
+      };
+    }
+    return {
+      cycleKey: this.cycleKey,
+      activeKey: this.activeBranchKey,
+      entries,
+    };
+  }
+
+  private pauseActiveBranch(
+    current: UsageSample | undefined,
+    at: number
+  ): void {
+    const key = this.activeBranchKey;
+    if (!key) {
+      return;
+    }
+    const entry = this.branchEntries[key];
+    if (!entry?.liveBaseline) {
+      this.activeBranchKey = undefined;
+      return;
+    }
+    if (current) {
+      entry.accumulatedAuto += Math.max(
+        0,
+        current.autoPercentUsed - entry.liveBaseline.autoPercentUsed
+      );
+      entry.accumulatedApi += Math.max(
+        0,
+        current.apiPercentUsed - entry.liveBaseline.apiPercentUsed
+      );
+    }
+    entry.liveBaseline = undefined;
+    entry.lastSeenAt = at;
+    this.activeBranchKey = undefined;
+  }
+
+  private enterBranch(key: string, current: UsageSample, at: number): void {
+    let entry = this.branchEntries[key];
+    if (!entry) {
+      this.evictOldestBranchesIfNeeded();
+      entry = {
+        accumulatedAuto: 0,
+        accumulatedApi: 0,
+        startedAt: at,
+        lastSeenAt: at,
+        liveBaseline: { ...current },
+      };
+      this.branchEntries[key] = entry;
+    } else {
+      entry.liveBaseline = { ...current };
+      entry.lastSeenAt = at;
+    }
+    this.activeBranchKey = key;
+  }
+
+  private evictOldestBranchesIfNeeded(): void {
+    const keys = Object.keys(this.branchEntries);
+    if (keys.length < THIS_BRANCH_MAP_CAP) {
+      return;
+    }
+    let oldestKey = keys[0];
+    let oldestAt = this.branchEntries[oldestKey].lastSeenAt;
+    for (const key of keys) {
+      const seen = this.branchEntries[key].lastSeenAt;
+      if (seen < oldestAt) {
+        oldestAt = seen;
+        oldestKey = key;
+      }
+    }
+    if (oldestKey === this.activeBranchKey) {
+      return;
+    }
+    delete this.branchEntries[oldestKey];
   }
 
   private latest(): UsageSample | undefined {
