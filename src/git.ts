@@ -102,7 +102,8 @@ function computeAnchor(api: GitAPI | undefined): GitAnchor | undefined {
 
 /**
  * Watch the active git repo and emit an Option-A anchor while the tree is dirty.
- * Emits undefined when clean, no repo, or vscode.git is unavailable (e.g. Remote UI).
+ * Emits undefined when clean, not a git workspace (no repos), or vscode.git is
+ * unavailable (e.g. Remote UI) — callers hide "Since last commit" in that case.
  */
 export function watchGitAnchor(
   onChange: (anchor: GitAnchor | undefined) => void

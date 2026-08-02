@@ -48,11 +48,13 @@ let lastStatusKey = '';
 let windowFocused = true;
 let lastSnapshot: UsageSnapshot | undefined;
 let lastGitAnchor: GitAnchor | undefined;
+/** False until watchGitAnchor emits once — avoids flashing a stale persisted window. */
+let gitReady = false;
 const windowTracker = new UsageWindowTracker();
 
 function stampGit(snapshot: UsageSnapshot): UsageSnapshot {
-  if (!lastGitAnchor || !snapshot.sinceLastCommit) {
-    const { git: _drop, ...rest } = snapshot;
+  if (!gitReady || !lastGitAnchor || !snapshot.sinceLastCommit) {
+    const { git: _g, sinceLastCommit: _s, ...rest } = snapshot;
     return rest;
   }
   return {
@@ -92,12 +94,11 @@ export function activate(context: vscode.ExtensionContext): void {
     windowTracker.loadSamples(storedSamples);
   }
 
-  const storedAnchor = parseAnchoredBaseline(
+  // Defer loading the since-last-commit anchor until git has spoken once
+  // (avoids a flash when the tree is clean but workspaceState is stale).
+  let pendingStoredAnchor = parseAnchoredBaseline(
     context.workspaceState.get(SINCE_LAST_COMMIT_BASELINE_KEY)
   );
-  if (storedAnchor) {
-    windowTracker.loadAnchor(storedAnchor);
-  }
 
   const persistWindowsIfNeeded = async (): Promise<void> => {
     const toSave = windowTracker.takeCustomBaselineIfNeedsPersist();
@@ -303,10 +304,26 @@ export function activate(context: vscode.ExtensionContext): void {
   const activityWatcher = watchAiTrackingDb(onAiActivity);
 
   const gitWatcher = watchGitAnchor((anchor) => {
+    const firstEmit = !gitReady;
+    gitReady = true;
+
+    if (firstEmit) {
+      if (pendingStoredAnchor && anchor?.key === pendingStoredAnchor.key) {
+        windowTracker.loadAnchor(pendingStoredAnchor);
+      } else if (pendingStoredAnchor) {
+        // Stale: tree clean, no git, or HEAD moved while we were closed.
+        void context.workspaceState.update(
+          SINCE_LAST_COMMIT_BASELINE_KEY,
+          undefined
+        );
+      }
+      pendingStoredAnchor = undefined;
+    }
+
     const prevKey = lastGitAnchor?.key;
     lastGitAnchor = anchor;
     const next = windowTracker.setAnchor(anchor?.key);
-    if (next === undefined && prevKey === (anchor?.key ?? undefined)) {
+    if (next === undefined && prevKey === (anchor?.key ?? undefined) && !firstEmit) {
       // Metadata-only change (e.g. dirty file count) — restamp UI if we have data.
       if (lastSnapshot) {
         const updated = stampGit(windowTracker.overlayWindows(lastSnapshot));
@@ -323,6 +340,14 @@ export function activate(context: vscode.ExtensionContext): void {
       );
     } else if (next) {
       void context.workspaceState.update(SINCE_LAST_COMMIT_BASELINE_KEY, next);
+    }
+    // First emit with a restored matching anchor: restamp without forcing an API hit.
+    if (firstEmit && next === undefined && lastSnapshot) {
+      const updated = stampGit(windowTracker.overlayWindows(lastSnapshot));
+      lastSnapshot = updated;
+      provider.showUsage(updated, { force: true });
+      updateStatusBar(statusBar, updated);
+      return;
     }
     requestRefresh('git', { silent: true, force: true });
   });
