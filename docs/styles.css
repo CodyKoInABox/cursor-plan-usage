@@ -53,6 +53,24 @@ a:hover {
   color: color-mix(in srgb, var(--cm) 75%, white);
 }
 
+.gh-link,
+.gh-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35em;
+}
+
+.gh-icon {
+  width: 1em;
+  height: 1em;
+  flex-shrink: 0;
+}
+
+.btn.gh-link .gh-icon {
+  width: 1.05em;
+  height: 1.05em;
+}
+
 code {
   font-size: 0.92em;
   padding: 0.1em 0.35em;
@@ -198,6 +216,13 @@ code {
   margin-top: -6vh;
 }
 
+.brand-hero-icon {
+  width: clamp(5.5rem, 12vw, 8rem);
+  height: auto;
+  margin: 0 0 1.15rem;
+  border-radius: 18px;
+}
+
 .brand-hero {
   margin: 0 0 0.85rem;
   font-family: var(--font-display);
@@ -285,7 +310,8 @@ code {
 .hero-visual {
   justify-self: end;
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  align-items: flex-end;
   margin-right: calc(-1 * var(--pad));
   max-height: calc(100svh - 5.5rem);
 }
@@ -296,6 +322,23 @@ code {
   max-height: calc(100svh - 5.5rem);
   object-fit: contain;
   object-position: center right;
+}
+
+.shot-credit {
+  margin: 0.65rem 0 0;
+  font-size: 0.78rem;
+  color: var(--muted);
+  letter-spacing: 0.01em;
+}
+
+.shot-credit a {
+  color: var(--muted);
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
+.shot-credit a:hover {
+  color: var(--fg);
 }
 
 .section {
@@ -462,6 +505,10 @@ code {
 }
 
 @media (max-width: 960px) {
+  .site-header {
+    display: none;
+  }
+
   .hero {
     grid-template-columns: 1fr;
     align-items: start;
@@ -491,6 +538,7 @@ code {
 
   .hero-visual {
     justify-self: center;
+    align-items: center;
     width: 100%;
     margin-right: 0;
     margin-left: 0;
@@ -504,6 +552,11 @@ code {
     margin-inline: auto;
     object-fit: contain;
     object-position: top center;
+  }
+
+  .shot-credit {
+    text-align: center;
+    align-self: center;
   }
 
   .usage-bars {
@@ -529,15 +582,6 @@ code {
 }
 
 @media (max-width: 560px) {
-  .site-header {
-    padding-inline: var(--pad);
-  }
-
-  .site-header nav a:first-child,
-  .site-header nav a:nth-child(2) {
-    display: none;
-  }
-
   .brand-hero {
     font-size: clamp(2.1rem, 11vw, 2.8rem);
   }

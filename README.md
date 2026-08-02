@@ -2,10 +2,10 @@
 
 **See your Cursor plan usage without leaving the editor.**
 
-[Website](https://codykoinabox.github.io/cursor-plan-usage/) · Live **Cursor Models** and **Other Models** percentages in a dockable sidebar and status bar chip — so you always know where you stand in the billing cycle.
+[Website](https://codykoinabox.github.io/cursor-plan-usage/) · Live **Cursor Models** and **Other Models** percentages in a dockable sidebar and status bar — plus git-aware windows for spend since your last commit or while you’re on a feature branch.
 
 #### You can easily install the extension through the Extensions tab inside Cursor:
-<img width="268" height="228" alt="image" src="https://github.com/user-attachments/assets/2e36d629-3784-4ecd-b4be-677fd1a1ce41" />
+<img width="268" height="228" alt="Installing Cursor Plan Usage from the Extensions tab" src="https://github.com/user-attachments/assets/2e36d629-3784-4ecd-b4be-677fd1a1ce41" />
 
 
 [Install on Open VSX](https://open-vsx.org/extension/CodyKoInABox/cursor-plan-usage) · [Report an issue](https://github.com/CodyKoInABox/cursor-plan-usage/issues)
@@ -15,15 +15,17 @@
 ## Features
 
 - **Sidebar panel** — CM / OM usage at a glance in the activity bar
-- **Status bar chip** — `CM n% · OM n%` always visible while you work, or your **Usage so far** deltas instead
+- **Status bar chip** — `CM n% · OM n%` cycle totals, or deltas for **Usage so far** / **Since last commit** / **This branch**
 - **Billing cycle** — progress through the period, end time, and a simple projection
-- **Session deltas** — last-hour and IDE-session usage while the extension is sampling
-- **Usage so far** — custom resettable window that persists across reloads; track any period you care about. Auto-resets when a new billing cycle starts
+- **Session deltas** — last-hour usage persists across reloads; IDE-session usage is since this Cursor window opened
+- **Usage so far** — resettable window that persists across reloads; auto-resets on a new billing cycle
+- **Since last commit** — plan % burned while the working tree is dirty; resets on each commit. Hidden when the tree is clean
+- **This branch** — plan % while a feature branch is checked out; pauses on `main` / other branches and restores when you return. Hidden on the default branch
 - **Smart refresh** — updates on focus and AI activity; pauses when Cursor is unfocused
 
 
 ## UI Example
-<img width="374" height="808" alt="Screenshot_1509" src="https://github.com/user-attachments/assets/42b61e48-6113-4b0e-b246-ec3a56f383bf" />
+<img width="281" height="1024" alt="Plan Usage sidebar showing Cursor Models, Other Models, and git-aware usage windows" src="docs/assets/sidebar.png" />
 
 
 ## Cursor only
@@ -66,7 +68,7 @@ After install, open the **Plan Usage** icon in the activity bar, or run **Plan U
 | --- | --- | --- |
 | `cursorPlanUsage.pollIntervalSeconds` | `0` | Idle poll interval (seconds) while focused. `0` = adaptive (30s burst for 2 min after AI activity, then 3 min). Polling pauses while unfocused. |
 | `cursorPlanUsage.refreshOnAiActivity` | `true` | Refresh when Cursor’s local AI tracking DB updates |
-| `cursorPlanUsage.statusBarMode` | `absolute` | `absolute` shows cycle totals (`CM 45% · OM 20%`); `usageSoFar` shows deltas since your last Reset (`CM +4% · OM +2%`) |
+| `cursorPlanUsage.statusBarMode` | `absolute` | `absolute` shows cycle totals (`CM 45% · OM 20%`); `usageSoFar` shows deltas since your last Reset (`CM +4% · OM +2%`); `sinceLastCommit` shows deltas since HEAD while dirty; `thisBranch` shows deltas while the current feature branch is checked out |
 | `cursorPlanUsage.apiBaseUrl` | `https://api2.cursor.sh` | Dashboard API base URL |
 
 There is no `sessionToken` setting — use the Set / Clear Session Token commands instead.
@@ -77,7 +79,7 @@ There is no `sessionToken` setting — use the Set / Clear Session Token command
 | --- | --- |
 | **No token found** | Sign in to Cursor, or run **Plan Usage: Set Session Token** with a valid session token / JWT. |
 | **401 / unauthorized** | Re-sign into Cursor, or set a fresh token via **Plan Usage: Set Session Token**. |
-| **Remote-SSH / WSL** | The extension runs in the **local** Cursor UI and uses the local session DB. If usage looks wrong in a remote window, use a local window or set a session token override. |
+| **Remote-SSH / WSL** | The extension runs in the **local** Cursor UI and uses the local session DB. If usage looks wrong in a remote window, use a local window or set a session token override. **Since last commit** / **This branch** need the built-in git API and stay hidden when it is unavailable in remote UI hosts. |
 
 ## Notes
 

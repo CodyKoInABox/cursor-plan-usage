@@ -17,6 +17,17 @@ export interface UsageSnapshot {
   session?: UsageWindow;
   /** User-resettable window; baseline persisted across reloads. */
   usageSoFar?: UsageWindow;
+  /** Usage since HEAD while the working tree is dirty. */
+  sinceLastCommit?: UsageWindow;
+  /** Usage while the current feature branch was checked out (active-time). */
+  thisBranch?: UsageWindow;
+  /** Active git repo metadata for git-derived windows. */
+  git?: {
+    repoName: string;
+    branch?: string;
+    dirtyFiles: number;
+    isDefaultBranch?: boolean;
+  };
 }
 
 /** Delta for a time window relative to a baseline sample. */

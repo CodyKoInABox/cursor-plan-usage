@@ -6,7 +6,7 @@
     <title>Cursor Plan Usage</title>
     <meta
       name="description"
-      content="See your Cursor plan usage without leaving the editor. Live CM and OM percentages in a sidebar and status bar."
+      content="See your Cursor plan usage without leaving the editor. Live CM and OM percentages, plus since-last-commit and this-branch deltas in a sidebar and status bar."
     />
     <link rel="icon" href="assets/icon.png" type="image/png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -37,9 +37,11 @@
         <a href="#features">Features</a>
         <a href="#install">Install</a>
         <a
+          class="gh-link"
           href="https://github.com/CodyKoInABox/cursor-plan-usage"
+          target="_blank"
           rel="noopener noreferrer"
-          >GitHub</a
+          ><svg class="gh-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>GitHub</a
         >
       </nav>
     </header>
@@ -47,40 +49,60 @@
     <main id="top">
       <section class="hero">
         <div class="hero-copy reveal">
-          <p class="brand-hero">Cursor Plan Usage</p>
+          <img
+            class="brand-hero-icon"
+            src="assets/icon.png"
+            alt=""
+            width="128"
+            height="128"
+          />
+          <h1 class="brand-hero">Cursor Plan Usage</h1>
           <p class="tagline">
             See your Cursor plan usage without leaving the editor.
           </p>
           <p class="lede">
             Live Cursor Models and Other Models percentages in a dockable
-            sidebar and status bar chip — so you always know where you stand in
-            the billing cycle.
+            sidebar and status bar — plus git-aware windows for spend since your
+            last commit or while you’re on a feature branch.
           </p>
           <div class="cta-row">
             <a class="btn btn-primary" href="#install">Install in Cursor</a>
             <a
-              class="btn btn-ghost"
+              class="btn btn-ghost gh-link"
               href="https://github.com/CodyKoInABox/cursor-plan-usage"
+              target="_blank"
               rel="noopener noreferrer"
-              >View on GitHub</a
+              ><svg class="gh-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>View on GitHub</a
             >
           </div>
         </div>
         <div class="hero-visual reveal reveal-delay">
           <img
             src="assets/sidebar.png"
-            alt="Plan Usage sidebar showing Cursor Models and Other Models percentages"
-            width="374"
-            height="808"
+            alt="Plan Usage sidebar showing Cursor Models, Other Models, and git-aware usage windows"
+            width="281"
+            height="1024"
             fetchpriority="high"
           />
+          <p class="shot-credit">
+            Captured with
+            <a
+              href="https://github.com/CodyKoInABox/rustshot"
+              target="_blank"
+              rel="noopener noreferrer"
+              >Rustshot</a
+            >
+          </p>
         </div>
       </section>
 
       <section class="section features" id="features">
         <div class="section-intro reveal">
           <h2>What you get</h2>
-          <p>Everything you need to track plan burn without leaving Cursor.</p>
+          <p>
+            Cycle totals, custom windows, and git-aware deltas — without leaving
+            Cursor.
+          </p>
         </div>
         <ul class="feature-list">
           <li class="reveal">
@@ -90,8 +112,8 @@
           <li class="reveal">
             <strong>Status bar chip</strong>
             <span
-              >Always-visible <code>CM n% · OM n%</code> — or Usage so far
-              deltas</span
+              ><code>CM n% · OM n%</code> cycle totals, or deltas for Usage so
+              far / Since last commit / This branch</span
             >
           </li>
           <li class="reveal">
@@ -100,13 +122,31 @@
           </li>
           <li class="reveal">
             <strong>Session deltas</strong>
-            <span>Last-hour and IDE-session usage while the extension is sampling</span>
+            <span
+              >Last-hour usage persists across reloads; IDE-session usage is
+              since this Cursor window opened</span
+            >
           </li>
           <li class="reveal">
             <strong>Usage so far</strong>
             <span
               >Resettable window that persists across reloads; auto-resets on a
               new billing cycle</span
+            >
+          </li>
+          <li class="reveal">
+            <strong>Since last commit</strong>
+            <span
+              >Plan % burned while the working tree is dirty; resets on each
+              commit. Hidden when the tree is clean</span
+            >
+          </li>
+          <li class="reveal">
+            <strong>This branch</strong>
+            <span
+              >Plan % while a feature branch is checked out; pauses on
+              <code>main</code> / other branches and restores when you return.
+              Hidden on the default branch</span
             >
           </li>
           <li class="reveal">
@@ -132,13 +172,14 @@
           <div class="install-copy">
             <ol>
               <li>Open Extensions</li>
-              <li>Search <strong>Cursor Plan Usage</strong></li>
+              <li>Search <strong>Cursor Plan Usage by CodyKoInABox</strong></li>
               <li>Install</li>
             </ol>
             <p>
               Also on
               <a
                 href="https://open-vsx.org/extension/CodyKoInABox/cursor-plan-usage"
+                target="_blank"
                 rel="noopener noreferrer"
                 >Open VSX</a
               >.
@@ -150,17 +191,24 @@
       <section class="section feedback" id="feedback">
         <div class="feedback-inner reveal">
           <h2>Feedback</h2>
-          <p>Found a bug or have an idea? Open an issue on GitHub.</p>
+          <p>
+            Found a bug or have an idea? Open an issue on
+            <span class="gh-inline"
+              ><svg class="gh-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>GitHub</span
+            >.
+          </p>
           <div class="cta-row">
             <a
               class="btn btn-primary"
               href="https://github.com/CodyKoInABox/cursor-plan-usage/issues/new?labels=bug&title=Bug%3A%20"
+              target="_blank"
               rel="noopener noreferrer"
               >Report a bug</a
             >
             <a
               class="btn btn-ghost"
               href="https://github.com/CodyKoInABox/cursor-plan-usage/issues/new?labels=enhancement&title=Feature%3A%20"
+              target="_blank"
               rel="noopener noreferrer"
               >Suggest a feature</a
             >
@@ -174,9 +222,11 @@
           <p>
             MIT licensed and fully readable on
             <a
+              class="gh-link"
               href="https://github.com/CodyKoInABox/cursor-plan-usage"
+              target="_blank"
               rel="noopener noreferrer"
-              >GitHub</a
+              ><svg class="gh-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>GitHub</a
             >. Audit it, fork it, or send a pull request.
           </p>
         </div>
@@ -206,11 +256,17 @@
 
     <footer class="site-footer">
       <p>
-        <a href="https://github.com/CodyKoInABox/cursor-plan-usage" rel="noopener noreferrer"
+        <a
+          href="https://github.com/CodyKoInABox/cursor-plan-usage"
+          target="_blank"
+          rel="noopener noreferrer"
           >MIT</a
         >
         · Created by
-        <a href="https://github.com/CodyKoInABox" rel="noopener noreferrer"
+        <a
+          href="https://github.com/CodyKoInABox"
+          target="_blank"
+          rel="noopener noreferrer"
           >CodyKoInABox</a
         >
       </p>

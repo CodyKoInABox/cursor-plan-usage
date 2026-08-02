@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.3.0
+
+### Features
+
+- Added **Since last commit** usage window: plan % burned while the working tree is dirty, re-anchored on every HEAD move (automatic; no manual reset). Hidden when the tree is clean or the workspace is not a git repo
+- Added **This branch** usage window: plan % while a feature branch is checked out, with active-time pause/resume so spend on other branches does not inflate the counter (hidden on the default branch)
+- Optional status bar modes `sinceLastCommit` and `thisBranch`
+- **Last hour** usage now persists across IDE reloads when sampling continued in the prior hour
+
+### UI
+
+- Timestamps use 24-hour format
+- Git-aware windows wait for the built-in git API before rendering (no flicker / stale placeholders on startup)
+
+### Docs
+
+- Landing page and README updated for the git-aware windows
+
 ## 0.2.0
 
 ### Features

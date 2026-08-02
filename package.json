@@ -2,7 +2,7 @@
   "name": "cursor-plan-usage",
   "displayName": "Cursor Plan Usage",
   "description": "Dockable sidebar showing Cursor Models and Other Models plan usage percentages.",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "publisher": "CodyKoInABox",
   "license": "MIT",
   "icon": "resources/icon.png",
@@ -111,11 +111,15 @@
           "default": "absolute",
           "enum": [
             "absolute",
-            "usageSoFar"
+            "usageSoFar",
+            "sinceLastCommit",
+            "thisBranch"
           ],
           "enumDescriptions": [
             "Total usage in the current billing cycle (CM 45% · OM 20%).",
-            "Usage since you last pressed Reset in the sidebar (CM +4% · OM +2%)."
+            "Usage since you last pressed Reset in the sidebar (CM +4% · OM +2%).",
+            "Usage since last commit while the working tree is dirty (CM +1% · OM +0%).",
+            "Usage while the current feature branch was checked out (CM +3% · OM +1%)."
           ],
           "description": "What the status bar chip shows."
         },

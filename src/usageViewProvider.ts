@@ -186,7 +186,13 @@ function sameUsage(a: UsageSnapshot | undefined, b: UsageSnapshot): boolean {
     a.billingCycleEnd === b.billingCycleEnd &&
     sameWindow(a.lastHour, b.lastHour) &&
     sameWindow(a.session, b.session) &&
-    sameWindow(a.usageSoFar, b.usageSoFar)
+    sameWindow(a.usageSoFar, b.usageSoFar) &&
+    sameWindow(a.sinceLastCommit, b.sinceLastCommit) &&
+    sameWindow(a.thisBranch, b.thisBranch) &&
+    a.git?.dirtyFiles === b.git?.dirtyFiles &&
+    a.git?.branch === b.git?.branch &&
+    a.git?.repoName === b.git?.repoName &&
+    a.git?.isDefaultBranch === b.git?.isDefaultBranch
   );
 }
 
