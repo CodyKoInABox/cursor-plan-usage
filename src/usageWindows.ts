@@ -15,6 +15,9 @@ export interface UsageSoFarState {
 /** globalState key for the user-resettable "Usage so far" baseline. */
 export const USAGE_SO_FAR_BASELINE_KEY = 'cursorPlanUsage.usageSoFarBaseline';
 
+/** globalState key for the pruned last-hour sample ring. */
+export const USAGE_SAMPLES_KEY = 'cursorPlanUsage.usageSamples';
+
 const HOUR_MS = 60 * 60 * 1000;
 /** Keep slightly more than 1h so we always have a pre-window baseline. */
 const RETAIN_MS = HOUR_MS + 15 * 60 * 1000;
@@ -93,8 +96,26 @@ export function parseUsageSoFarState(
   return undefined;
 }
 
+/** Reads a persisted sample ring; skips malformed entries. */
+export function parseUsageSamples(value: unknown): UsageSample[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  const out: UsageSample[] = [];
+  for (const item of value) {
+    if (isUsageSample(item)) {
+      out.push({
+        at: item.at,
+        autoPercentUsed: item.autoPercentUsed,
+        apiPercentUsed: item.apiPercentUsed,
+      });
+    }
+  }
+  return out;
+}
+
 /**
- * In-memory ring of period-usage samples for last-hour / IDE-session deltas.
+ * Sample ring for last-hour (persisted) and IDE-session (in-memory) deltas.
  * Absolute spend/% come from GetCurrentPeriodUsage; windows are local diffs.
  */
 export class UsageWindowTracker {
@@ -104,11 +125,23 @@ export class UsageWindowTracker {
   private cycleKey?: string;
   /** True when customBaseline was seeded/rolled over and not yet persisted. */
   private customBaselineNeedsPersist = false;
+  /** True when the sample ring changed and is not yet persisted. */
+  private samplesNeedPersist = false;
 
   loadCustomBaseline(state: UsageSoFarState): void {
     this.customBaseline = { ...state.baseline };
     this.cycleKey = state.cycleKey;
     this.customBaselineNeedsPersist = false;
+  }
+
+  /**
+   * Restore the last-hour sample ring. Does not seed sessionBaseline — that
+   * stays IDE-local and is set on the next live record().
+   */
+  loadSamples(samples: UsageSample[], at = Date.now()): void {
+    this.samples = samples.map((s) => ({ ...s }));
+    this.prune(at);
+    this.samplesNeedPersist = false;
   }
 
   /**
@@ -125,6 +158,18 @@ export class UsageWindowTracker {
     }
     this.customBaselineNeedsPersist = false;
     return state;
+  }
+
+  /**
+   * If the sample ring changed and is not yet written, return a copy and clear
+   * the dirty flag. Callers should persist to globalState.
+   */
+  takeSamplesIfNeedsPersist(): UsageSample[] | undefined {
+    if (!this.samplesNeedPersist) {
+      return undefined;
+    }
+    this.samplesNeedPersist = false;
+    return this.samples.map((s) => ({ ...s }));
   }
 
   /**
@@ -164,6 +209,7 @@ export class UsageWindowTracker {
     }
     this.samples.push(sample);
     this.prune(at);
+    this.samplesNeedPersist = true;
   }
 
   attachWindows(snapshot: UsageSnapshot, at = Date.now()): UsageSnapshot {

@@ -13,7 +13,9 @@ import { CursorApiError, fetchUsageSnapshot } from './api';
 import { UsageViewProvider } from './usageViewProvider';
 import type { UsageSnapshot } from './types';
 import {
+  parseUsageSamples,
   parseUsageSoFarState,
+  USAGE_SAMPLES_KEY,
   USAGE_SO_FAR_BASELINE_KEY,
   UsageWindowTracker,
 } from './usageWindows';
@@ -64,10 +66,21 @@ export function activate(context: vscode.ExtensionContext): void {
     windowTracker.loadCustomBaseline(storedBaseline);
   }
 
-  const persistCustomBaselineIfNeeded = async (): Promise<void> => {
+  const storedSamples = parseUsageSamples(
+    context.globalState.get(USAGE_SAMPLES_KEY)
+  );
+  if (storedSamples.length) {
+    windowTracker.loadSamples(storedSamples);
+  }
+
+  const persistWindowsIfNeeded = async (): Promise<void> => {
     const toSave = windowTracker.takeCustomBaselineIfNeedsPersist();
     if (toSave) {
       await context.globalState.update(USAGE_SO_FAR_BASELINE_KEY, toSave);
+    }
+    const samples = windowTracker.takeSamplesIfNeedsPersist();
+    if (samples) {
+      await context.globalState.update(USAGE_SAMPLES_KEY, samples);
     }
   };
 
@@ -76,7 +89,7 @@ export function activate(context: vscode.ExtensionContext): void {
     opts?: { force?: boolean }
   ): Promise<boolean> => {
     lastSnapshot = snapshot;
-    await persistCustomBaselineIfNeeded();
+    await persistWindowsIfNeeded();
     return provider.showUsage(snapshot, opts);
   };
 

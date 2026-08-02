@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { UsageSnapshot } from './types';
 import {
   isUsageSample,
+  parseUsageSamples,
   parseUsageSoFarState,
   UsageWindowTracker,
 } from './usageWindows';
@@ -52,6 +53,14 @@ describe('persisted usage state parsing', () => {
     });
     expect(parseUsageSoFarState(sample)).toEqual({ baseline: sample });
     expect(parseUsageSoFarState({ baseline: {} })).toBeUndefined();
+  });
+
+  it('parses a sample ring and skips garbage', () => {
+    expect(parseUsageSamples(null)).toEqual([]);
+    expect(parseUsageSamples({})).toEqual([]);
+    expect(
+      parseUsageSamples([sample, { at: 'bad' }, null, sample])
+    ).toEqual([sample, sample]);
   });
 });
 
@@ -119,9 +128,57 @@ describe('UsageWindowTracker', () => {
     expect(tracker.takeCustomBaselineIfNeedsPersist()).toBeUndefined();
   });
 
+  it('round-trips the sample ring so last-hour survives a restart', () => {
+    const a = new UsageWindowTracker();
+    a.record(snapshot(10, 20), BASE_TIME);
+    a.record(snapshot(12, 24), BASE_TIME + 30 * MINUTE_MS);
+    a.record(snapshot(15, 29), BASE_TIME + 90 * MINUTE_MS);
+
+    const persisted = a.takeSamplesIfNeedsPersist();
+    expect(persisted).toBeDefined();
+    expect(a.takeSamplesIfNeedsPersist()).toBeUndefined();
+
+    const b = new UsageWindowTracker();
+    b.loadSamples(persisted!, BASE_TIME + 90 * MINUTE_MS);
+    expect(b.lastHour(BASE_TIME + 90 * MINUTE_MS)).toMatchObject({
+      autoPercentDelta: 3,
+      apiPercentDelta: 5,
+      since: new Date(BASE_TIME + 30 * MINUTE_MS).toISOString(),
+      partial: false,
+      outdated: false,
+    });
+  });
+
+  it('does not seed session from loaded samples', () => {
+    const a = new UsageWindowTracker();
+    a.record(snapshot(10, 20), BASE_TIME);
+    a.record(snapshot(14, 28), BASE_TIME + 45 * MINUTE_MS);
+    const persisted = a.takeSamplesIfNeedsPersist()!;
+
+    const b = new UsageWindowTracker();
+    b.loadSamples(persisted, BASE_TIME + 45 * MINUTE_MS);
+    const reopenAt = BASE_TIME + 50 * MINUTE_MS;
+    b.record(snapshot(15, 30), reopenAt);
+
+    expect(b.session()).toMatchObject({
+      autoPercentDelta: 0,
+      apiPercentDelta: 0,
+      since: new Date(reopenAt).toISOString(),
+      partial: false,
+    });
+    expect(b.lastHour(reopenAt)).toMatchObject({
+      autoPercentDelta: 5,
+      apiPercentDelta: 10,
+      since: new Date(BASE_TIME).toISOString(),
+      partial: true,
+    });
+  });
+
   it('resets all windows when the billing cycle changes', () => {
     const tracker = new UsageWindowTracker();
     tracker.record(snapshot(90, 80), BASE_TIME);
+    expect(tracker.takeSamplesIfNeedsPersist()?.length).toBe(1);
+
     tracker.record(
       snapshot(2, 3, {
         billingCycleStart: '2026-08-01',
@@ -142,6 +199,13 @@ describe('UsageWindowTracker', () => {
     expect(tracker.takeCustomBaselineIfNeedsPersist()?.cycleKey).toBe(
       'start:2026-08-01'
     );
+    expect(tracker.takeSamplesIfNeedsPersist()).toEqual([
+      {
+        at: BASE_TIME + MINUTE_MS,
+        autoPercentUsed: 2,
+        apiPercentUsed: 3,
+      },
+    ]);
   });
 
   it('also detects rollover when cumulative usage drops significantly', () => {
