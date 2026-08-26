@@ -2,7 +2,7 @@
   "name": "cursor-plan-usage",
   "displayName": "Cursor Plan Usage",
   "description": "Dockable sidebar showing Cursor Models and Other Models plan usage percentages.",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "publisher": "CodyKoInABox",
   "license": "MIT",
   "icon": "resources/icon.png",
@@ -139,16 +139,15 @@
     "test": "vitest run",
     "package": "vsce package --no-dependencies"
   },
-  "dependencies": {
-    "sql.js": "^1.12.0"
-  },
   "devDependencies": {
     "@types/node": "^20.17.0",
-    "@types/sql.js": "^1.4.9",
     "@types/vscode": "^1.85.0",
     "@vscode/vsce": "^3.2.2",
     "esbuild": "^0.24.2",
     "typescript": "^5.7.2",
     "vitest": "^4.1.10"
+  },
+  "dependencies": {
+    "node-sqlite3-wasm": "^0.8.60"
   }
 }
