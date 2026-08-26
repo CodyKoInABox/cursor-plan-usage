@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.1
+
+### Fixes
+
+- Read Cursor's local state database through a filesystem-backed SQLite driver instead of copying and loading the entire file into memory. This fixes authentication when `state.vscdb` is larger than 2 GiB ([#12](https://github.com/CodyKoInABox/cursor-plan-usage/issues/12))
+
 ## 0.3.0
 
 ### Features

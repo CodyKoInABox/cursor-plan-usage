@@ -16,8 +16,13 @@ function copyStatic() {
     path.join(mediaOut, 'view.js')
   );
 
-  const wasmSrc = require.resolve('sql.js/dist/sql-wasm.wasm');
-  fs.copyFileSync(wasmSrc, path.join(__dirname, 'out', 'sql-wasm.wasm'));
+  const wasmSrc = require.resolve(
+    'node-sqlite3-wasm/dist/node-sqlite3-wasm.wasm'
+  );
+  fs.copyFileSync(
+    wasmSrc,
+    path.join(__dirname, 'out', 'node-sqlite3-wasm.wasm')
+  );
 }
 
 /** @type {import('esbuild').BuildOptions} */
