@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.2
+
+### Fixes
+
+- Cursor keeps `state.vscdb` in WAL mode. The WASM SQLite driver cannot open WAL files, so 0.3.1 failed with `Could not read Cursor session from local DB: unable to open database file`. Copy the DB to a temp file, strip the WAL flag on that copy, then query. The live Cursor database is never written. Non-WAL files still open in place, so multi-GiB state DBs are not copied.
+- Decode `ItemTable` BLOB values as UTF-8 so blob-stored access tokens still authenticate.
+
 ## 0.3.1
 
 ### Fixes
