@@ -77,6 +77,7 @@ There is no `sessionToken` setting — use the Set / Clear Session Token command
 
 | Symptom | Fix |
 | --- | --- |
+| **Could not read Cursor session from local DB: unable to open database file** | Update to 0.3.2+. 0.3.1 could not open Cursor's WAL-mode `state.vscdb`. |
 | **No token found** | Sign in to Cursor, or run **Plan Usage: Set Session Token** with a valid session token / JWT. |
 | **401 / unauthorized** | Re-sign into Cursor, or set a fresh token via **Plan Usage: Set Session Token**. |
 | **Remote-SSH / WSL** | The extension runs in the **local** Cursor UI and uses the local session DB. If usage looks wrong in a remote window, use a local window or set a session token override. **Since last commit** / **This branch** need the built-in git API and stay hidden when it is unavailable in remote UI hosts. |
