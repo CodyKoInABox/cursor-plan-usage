@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.7
+
+### Features
+
+- Warnings when Cursor Models or Other Models usage crosses a threshold (default 80% and 95%). Each threshold fires once per meter per billing cycle. Set `cursorPlanUsage.alerts` to `false` to turn them off, or `cursorPlanUsage.alertThresholds` to change the percentages (#22)
+- Time until the billing cycle resets, shown in the panel (ticks every 30s) and in the status bar tooltip (#23)
+
 ## 0.3.6
 
 ### Features
