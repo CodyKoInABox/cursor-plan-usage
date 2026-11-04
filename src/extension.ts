@@ -20,6 +20,7 @@ import {
   parseAlertState,
 } from './alerts';
 import { fmtResetCountdown, parseCycleEndMs } from './billing';
+import { withBurnEstimates } from './burnRate';
 import { describeError } from './errors';
 import { debugChannelDisposable, debugLog } from './log';
 import { type GitContext, watchGitContext } from './git';
@@ -68,7 +69,12 @@ let lastGitContext: GitContext | undefined;
 let gitReady = false;
 const windowTracker = new UsageWindowTracker();
 
-function stampGit(snapshot: UsageSnapshot): UsageSnapshot {
+/**
+ * Final pass on every snapshot before it becomes `lastSnapshot` (refresh, reset,
+ * git change). Burn estimates are derived here so they never go stale.
+ */
+function stampGit(input: UsageSnapshot): UsageSnapshot {
+  const snapshot = withBurnEstimates(input);
   if (!gitReady || !lastGitContext) {
     const { git: _g, sinceLastCommit: _s, thisBranch: _t, ...rest } = snapshot;
     return rest;
