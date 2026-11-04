@@ -364,6 +364,10 @@ body {
   margin-top: 6px;
 }
 
+.meta-countdown {
+  color: var(--muted);
+}
+
 .meta-value {
   display: inline-block;
   align-self: flex-start;

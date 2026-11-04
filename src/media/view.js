@@ -141,6 +141,20 @@
     return `in ${Math.floor(hours / 24)}d`;
   }
 
+  /** "resets in 3d 4h" / "resets in 42m" / "reset pending" — mirrors src/billing.ts. */
+  function fmtResetIn(value) {
+    const d = parseWhen(value);
+    if (!d) return '';
+    const remaining = d.getTime() - Date.now();
+    if (remaining <= 0) return 'reset pending';
+    const mins = Math.floor(remaining / 60000);
+    if (mins < 1) return 'resets in <1m';
+    if (mins < 60) return `resets in ${mins}m`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `resets in ${hours}h ${mins % 60}m`;
+    return `resets in ${Math.floor(hours / 24)}d ${hours % 24}h`;
+  }
+
   /** Footer row: where the session token came from, decrypted or not, and its expiry. */
   function renderToken(t) {
     if (!t) return '';
@@ -356,8 +370,12 @@
           `<progress class="bar bar-cycle" max="100" value="${cyclePct}" aria-label="Billing cycle progress">${esc(fmtPercent(cyclePct))}</progress>` +
           `</div>`
         : '';
+    const resetText = fmtResetIn(data.billingCycleEnd);
+    const resetHtml = resetText
+      ? ` <span class="meta-countdown" id="reset-countdown">· ${esc(resetText)}</span>`
+      : '';
     const cycle = data.billingCycleEnd
-      ? `<div class="meta meta-stack"><span class="meta-label">Billing cycle ends</span><span class="meta-value">${esc(fmtWhen(data.billingCycleEnd))}</span>${cycleBar}</div>`
+      ? `<div class="meta meta-stack"><span class="meta-label">Billing cycle ends</span><span class="meta-value">${esc(fmtWhen(data.billingCycleEnd))}${resetHtml}</span>${cycleBar}</div>`
       : '';
     const refreshed = data.refreshedAt
       ? `<div class="meta meta-stack meta-refreshed"><span class="meta-label">Last refreshed</span><span class="meta-value" id="refreshed-value" title="${esc(fmtWhen(data.refreshedAt))}">${esc(fmtRelative(data.refreshedAt))}</span></div>`
@@ -437,11 +455,16 @@
     });
   }
 
-  /** Keeps the relative "Last refreshed" label honest between refreshes. */
+  /** Keeps the "Last refreshed" age and the reset countdown honest between refreshes. */
   setInterval(() => {
-    const el = document.getElementById('refreshed-value');
-    if (!el || !lastData || !lastData.refreshedAt) return;
-    el.textContent = fmtRelative(lastData.refreshedAt);
+    const refreshed = document.getElementById('refreshed-value');
+    if (refreshed && lastData && lastData.refreshedAt) {
+      refreshed.textContent = fmtRelative(lastData.refreshedAt);
+    }
+    const reset = document.getElementById('reset-countdown');
+    if (reset && lastData) {
+      reset.textContent = `· ${fmtResetIn(lastData.billingCycleEnd)}`;
+    }
   }, 30000);
 
   window.addEventListener('message', (event) => {
