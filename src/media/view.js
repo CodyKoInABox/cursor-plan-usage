@@ -293,10 +293,16 @@
     app.innerHTML = '<div class="state state-loading">Loading plan usage…</div>';
   }
 
-  function renderError(message) {
+  /** `info` is an ErrorInfo: { kind, title, message, hint? }. */
+  function renderError(info) {
+    const title = info.title ? `<div class="state-error-title">${esc(info.title)}</div>` : '';
+    const detail = esc(info.message || 'Unknown error');
+    const hint = info.hint ? `<div class="state-error-hint">${esc(info.hint)}</div>` : '';
     app.innerHTML =
-      '<div class="state state-error">' +
-      esc(message) +
+      '<div class="state state-error" data-kind="' + esc(info.kind || 'unknown') + '">' +
+      title +
+      `<div>${detail}</div>` +
+      hint +
       '</div>' +
       '<div class="actions"><button class="primary" id="btn-refresh" type="button">Refresh</button></div>';
     bindRefresh();
@@ -415,7 +421,7 @@
     if (msg.type === 'loading') {
       renderLoading();
     } else if (msg.type === 'error') {
-      renderError(msg.message || 'Unknown error');
+      renderError(msg.error || { message: 'Unknown error' });
     } else if (msg.type === 'usageData') {
       lastData = msg.data || {};
       renderUsage(lastData);
