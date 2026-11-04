@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { debugLog } from './log';
 import { assertUsageShape } from './usageShape';
 import type { AuthResult, PlanInfoResponse, UsageSnapshot } from './types';
 
@@ -25,6 +26,7 @@ async function postJson<T>(
   body: unknown = {}
 ): Promise<T> {
   const url = `${apiBaseUrl()}${path}`;
+  const started = Date.now();
   const res = await fetch(url, {
     method: 'POST',
     headers: {
@@ -34,6 +36,7 @@ async function postJson<T>(
     },
     body: JSON.stringify(body),
   });
+  debugLog(`POST ${path} -> ${res.status} in ${Date.now() - started}ms`);
 
   if (!res.ok) {
     let detail = '';

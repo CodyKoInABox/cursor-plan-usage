@@ -12,6 +12,7 @@ import {
 } from './auth';
 import { CursorApiError, fetchUsageSnapshot } from './api';
 import { describeError } from './errors';
+import { debugChannelDisposable, debugLog } from './log';
 import { type GitContext, watchGitContext } from './git';
 import { UsageViewProvider } from './usageViewProvider';
 import type { UsageSnapshot } from './types';
@@ -180,6 +181,8 @@ export function activate(context: vscode.ExtensionContext): void {
     refreshing = true;
     pending = undefined;
     lastRefreshAt = now;
+    const startedAt = Date.now();
+    debugLog(`refresh start (silent=${opts.silent}, force=${opts.force})`);
     if (!opts.silent) {
       provider.showLoading();
     }
@@ -190,12 +193,14 @@ export function activate(context: vscode.ExtensionContext): void {
         const raw = await fetchUsageSnapshot(auth);
         const snapshot = windowTracker.attachWindows(raw);
         lastSuccessAt = Date.now();
+        debugLog(`refresh ok in ${lastSuccessAt - startedAt}ms`);
         const changed = await applySnapshot(snapshot, { force: !opts.silent });
         if (changed || !opts.silent) {
           updateStatusBar(statusBar, lastSnapshot ?? snapshot);
         }
       } catch (err) {
         if (err instanceof CursorApiError && err.status === 401) {
+          debugLog('refresh: 401, re-reading token and retrying once');
           clearAuthCache();
           auth = await resolveAuth(context, { force: true });
           const raw = await fetchUsageSnapshot(auth);
@@ -209,6 +214,9 @@ export function activate(context: vscode.ExtensionContext): void {
       }
     } catch (err) {
       const info = describeError(err);
+      const status =
+        err instanceof CursorApiError ? ` status=${err.status}` : '';
+      debugLog(`refresh failed: kind=${info.kind}${status}`);
       if (!opts.silent || !lastSuccessAt) {
         provider.showError(info);
         statusBar.text = '$(warning) Plan';
@@ -484,7 +492,8 @@ export function activate(context: vscode.ExtensionContext): void {
     },
     activityWatcher,
     authWatcher,
-    gitWatcher
+    gitWatcher,
+    debugChannelDisposable()
   );
 
   void (async () => {
