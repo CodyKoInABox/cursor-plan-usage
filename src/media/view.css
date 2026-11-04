@@ -49,6 +49,15 @@ body {
   text-align: left;
 }
 
+.state-error-title {
+  font-weight: 600;
+}
+
+.state-error-hint {
+  margin-top: 6px;
+  color: var(--muted);
+}
+
 .header {
   display: flex;
   flex-direction: column;

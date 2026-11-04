@@ -1,9 +1,10 @@
 import * as vscode from 'vscode';
+import type { ErrorInfo } from './errors';
 import type { UsageSnapshot } from './types';
 
 type HostToWebview =
   | { type: 'usageData'; data: UsageSnapshot }
-  | { type: 'error'; message: string }
+  | { type: 'error'; error: ErrorInfo }
   | { type: 'loading' };
 
 type WebviewToHost =
@@ -16,7 +17,7 @@ export class UsageViewProvider implements vscode.WebviewViewProvider {
 
   private view?: vscode.WebviewView;
   private lastSnapshot?: UsageSnapshot;
-  private lastError?: string;
+  private lastError?: ErrorInfo;
   private refreshHandler?: (opts?: { silent?: boolean }) => Promise<void>;
   private resetUsageSoFarHandler?: () => Promise<void>;
   private visibilityHandler?: (visible: boolean) => void;
@@ -98,18 +99,19 @@ export class UsageViewProvider implements vscode.WebviewViewProvider {
     return true;
   }
 
-  showError(message: string): void {
-    if (this.lastError === message) {
+  showError(error: ErrorInfo): void {
+    const prev = this.lastError;
+    if (prev && prev.kind === error.kind && prev.message === error.message) {
       return;
     }
     // Keep lastSnapshot for optional future "stale data" UI, but lastError wins on replay.
-    this.lastError = message;
-    this.post({ type: 'error', message });
+    this.lastError = error;
+    this.post({ type: 'error', error });
   }
 
   private replayLastState(): void {
     if (this.lastError) {
-      this.post({ type: 'error', message: this.lastError });
+      this.post({ type: 'error', error: this.lastError });
     } else if (this.lastSnapshot) {
       this.post({ type: 'usageData', data: this.lastSnapshot });
     } else {

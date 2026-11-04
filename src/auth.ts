@@ -3,8 +3,13 @@ import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { type AuthCacheEntry, canReuseAuth } from './authCache';
+import { TokenError } from './errors';
 import { isExpired, jwtExpiresAtMs } from './jwt';
-import { defaultUnsealOptions, unsealToken } from './safeStorage';
+import {
+  defaultUnsealOptions,
+  SafeStorageError,
+  unsealToken,
+} from './safeStorage';
 import { readAuthFromStateDb } from './stateDb';
 import type { AuthResult } from './types';
 
@@ -236,11 +241,19 @@ export async function resolveAuth(
       return rememberUsable(value, now, DB_EXPIRED_MESSAGE);
     }
   } catch (err) {
+    // Decrypt and expiry errors already say what went wrong; keep them as-is.
+    if (err instanceof SafeStorageError || err instanceof TokenError) {
+      throw err;
+    }
     const msg = err instanceof Error ? err.message : String(err);
-    throw new Error(`Could not read Cursor session from local DB: ${msg}`);
+    throw new TokenError(
+      'token-read',
+      `Could not read Cursor session from local DB: ${msg}`
+    );
   }
 
-  throw new Error(
+  throw new TokenError(
+    'token-missing',
     'No Cursor access token found. Sign in to Cursor, or run “Plan Usage: Set Session Token”.'
   );
 }
@@ -248,7 +261,7 @@ export async function resolveAuth(
 /** Cache the token only if it is still valid. Expired tokens never reach the API. */
 function rememberUsable(value: AuthResult, now: number, expiredMessage: string): AuthResult {
   if (isExpired(value.expiresAt, now)) {
-    throw new Error(expiredMessage);
+    throw new TokenError('token-expired', expiredMessage);
   }
   cachedAuth = {
     value,

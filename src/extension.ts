@@ -11,6 +11,7 @@ import {
   watchStateDbForAuth,
 } from './auth';
 import { CursorApiError, fetchUsageSnapshot } from './api';
+import { describeError } from './errors';
 import { type GitContext, watchGitContext } from './git';
 import { UsageViewProvider } from './usageViewProvider';
 import type { UsageSnapshot } from './types';
@@ -207,11 +208,11 @@ export function activate(context: vscode.ExtensionContext): void {
         throw err;
       }
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
+      const info = describeError(err);
       if (!opts.silent || !lastSuccessAt) {
-        provider.showError(message);
+        provider.showError(info);
         statusBar.text = '$(warning) Plan';
-        statusBar.tooltip = message;
+        statusBar.tooltip = info.message;
       }
     } finally {
       refreshing = false;
