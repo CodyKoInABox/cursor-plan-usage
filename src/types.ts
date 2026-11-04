@@ -21,6 +21,8 @@ export interface UsageSnapshot {
   sinceLastCommit?: UsageWindow;
   /** Usage while the current feature branch was checked out (active-time). */
   thisBranch?: UsageWindow;
+  /** Token origin for the footer. Never contains the token. */
+  tokenInfo?: TokenInfo;
   /** Active git repo metadata for git-derived windows. */
   git?: {
     repoName: string;
@@ -51,6 +53,15 @@ export interface AuthResult {
   email?: string;
   source: 'db' | 'secret';
   /** Epoch ms from the JWT `exp` claim, when the token has one. */
+  expiresAt?: number;
+  /** True when the stored value was safeStorage-sealed and decrypted in memory. */
+  sealed?: boolean;
+}
+
+/** Where the token that produced a snapshot came from. Never holds the token. */
+export interface TokenInfo {
+  source: 'db' | 'secret';
+  sealed: boolean;
   expiresAt?: number;
 }
 

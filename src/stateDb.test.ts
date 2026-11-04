@@ -199,6 +199,7 @@ describe('readAuthFromStateDb with safeStorage-sealed tokens', () => {
       accessToken: JWT,
       membershipType: 'pro',
       source: 'db',
+      sealed: true,
     });
     expect(readHeaderVersions(dbPath)).toEqual([2, 2]);
     expect(readFileSync(dbPath).equals(before)).toBe(true);

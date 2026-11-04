@@ -130,6 +130,32 @@
     return fmtWhen(value);
   }
 
+  /** "in 42m" / "in 3h 5m" / "in 2d" until a Unix-ms expiry, or "expired". */
+  function fmtExpiresIn(ms) {
+    if (typeof ms !== 'number' || !Number.isFinite(ms)) return '';
+    const mins = Math.round((ms - Date.now()) / 60000);
+    if (mins <= 0) return 'expired';
+    if (mins < 60) return `in ${mins}m`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `in ${hours}h ${mins % 60}m`;
+    return `in ${Math.floor(hours / 24)}d`;
+  }
+
+  /** Footer row: where the session token came from, decrypted or not, and its expiry. */
+  function renderToken(t) {
+    if (!t) return '';
+    const parts = [t.source === 'secret' ? 'Session token override' : 'Cursor local DB'];
+    if (t.sealed) parts.push('decrypted');
+    const exp = fmtExpiresIn(t.expiresAt);
+    if (exp) parts.push(`expires ${exp}`);
+    return (
+      `<div class="meta meta-stack meta-token">` +
+      `<span class="meta-label">Session token</span>` +
+      `<span class="meta-value">${esc(parts.join(' · '))}</span>` +
+      `</div>`
+    );
+  }
+
   /** `{ text, tip }` for a window's "since" line, or null when unknown. */
   function sinceInfo(w, kind) {
     if (!w || !w.since) return null;
@@ -358,6 +384,8 @@
           `</section>`
         : '';
 
+    const token = renderToken(data.tokenInfo);
+
     app.innerHTML =
       `<div class="header">` +
       `<h1>${plan}</h1>` +
@@ -386,6 +414,7 @@
       `<div class="footer">` +
       cycle +
       refreshed +
+      token +
       `</div>`;
     bindResetUsageSoFar();
   }

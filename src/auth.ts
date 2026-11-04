@@ -8,6 +8,7 @@ import { isExpired, jwtExpiresAtMs } from './jwt';
 import { debugLog } from './log';
 import {
   defaultUnsealOptions,
+  isSealed,
   SafeStorageError,
   unsealToken,
 } from './safeStorage';
@@ -134,7 +135,7 @@ async function readFromStateDb(): Promise<AuthResult | undefined> {
 
 async function readSecretToken(
   secrets: vscode.SecretStorage
-): Promise<string | undefined> {
+): Promise<{ token: string; sealed: boolean } | undefined> {
   const raw = await secrets.get(SESSION_TOKEN_SECRET_KEY);
   if (!raw) {
     return undefined;
@@ -145,7 +146,10 @@ async function readSecretToken(
     defaultUnsealOptions(getCursorStateDbPath())
   );
   const normalized = normalizeSessionToken(unsealed);
-  return normalized || undefined;
+  if (!normalized) {
+    return undefined;
+  }
+  return { token: normalized, sealed: isSealed(raw) };
 }
 
 /**
@@ -223,12 +227,13 @@ export async function resolveAuth(
   }
   debugLog(`auth: re-read (forced=${opts?.force === true}, stale=${authStale})`);
 
-  const secretToken = await readSecretToken(context.secrets);
-  if (secretToken) {
+  const secret = await readSecretToken(context.secrets);
+  if (secret) {
     const value: AuthResult = {
-      accessToken: secretToken,
+      accessToken: secret.token,
       source: 'secret',
-      expiresAt: jwtExpiresAtMs(secretToken),
+      expiresAt: jwtExpiresAtMs(secret.token),
+      ...(secret.sealed ? { sealed: true } : {}),
     };
     return rememberUsable(value, now, SECRET_EXPIRED_MESSAGE);
   }
