@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.6
+
+### Features
+
+- The footer shows where the session token came from (Cursor local DB or Session Token override), whether it was decrypted, and how long until it expires (#19)
+- Failures show a title, detail, and hint per kind: missing token, expired token, rejected token, decrypt failure, unexpected response, API error (#20)
+- `cursorPlanUsage.debug` (off by default) writes refresh, API status, and token-source lines to the "Cursor Plan Usage" output channel. Secrets are redacted (#21)
+
 ## 0.3.5
 
 ### Fixes
