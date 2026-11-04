@@ -80,7 +80,25 @@
     return Math.max(0, Math.min(100, n));
   }
 
-  function renderUsageSection(title, subtitle, used, barClass, cyclePct) {
+  /**
+   * Burn-rate line from the last hour (src/burnRate.ts). It is an estimate:
+   * the rate can change quickly, so the copy says so.
+   */
+  function renderBurn(b) {
+    if (!b || typeof b.ratePerHour !== 'number') return '';
+    const rate = `+${Math.round(b.ratePerHour * 10) / 10}%/h`;
+    const when = b.afterReset
+      ? "won't reach 100% before reset at this rate"
+      : `100% around ${fmtWhen(b.limitAtMs)}`;
+    return (
+      `<p class="projection projection-burn" tabindex="0" ` +
+      `data-tip="Estimate from the last hour of usage. Bursty use makes it wrong.">` +
+      `Estimate: ${esc(rate)} · ${esc(when)}` +
+      `</p>`
+    );
+  }
+
+  function renderUsageSection(title, subtitle, used, barClass, cyclePct, burn) {
     const projected = projectEndPct(used, cyclePct);
     const projClamp = projected != null ? clampPct(projected) : null;
     const over = projected != null && projected >= 100;
@@ -90,6 +108,7 @@
           `~${esc(fmtPercent(projected))} by cycle end` +
           `</p>`
         : '';
+    const burnHtml = renderBurn(burn);
     const barHtml =
       projClamp != null
         ? `<div class="bar-stack" role="img" aria-label="${esc(title)}: ${esc(fmtPercent(used))} used, ~${esc(fmtPercent(projected))} projected">` +
@@ -107,6 +126,7 @@
       `<p class="subtitle">${esc(subtitle)}</p>` +
       barHtml +
       projHtml +
+      burnHtml +
       `</section>`
     );
   }
@@ -414,7 +434,8 @@
         "Auto mode and Cursor's models",
         auto,
         'cursor',
-        cyclePct
+        cyclePct,
+        data.burn && data.burn.auto
       ) +
       `<hr class="divider" />` +
       renderUsageSection(
@@ -422,7 +443,8 @@
         'Third-party API models',
         api,
         'other',
-        cyclePct
+        cyclePct,
+        data.burn && data.burn.api
       ) +
       usageSoFar +
       sinceLastCommit +

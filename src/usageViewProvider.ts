@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import type { ErrorInfo } from './errors';
-import type { UsageSnapshot } from './types';
+import type { BurnEstimate, UsageSnapshot } from './types';
 
 type HostToWebview =
   | { type: 'usageData'; data: UsageSnapshot }
@@ -197,7 +197,23 @@ function sameUsage(a: UsageSnapshot | undefined, b: UsageSnapshot): boolean {
     a.git?.isDefaultBranch === b.git?.isDefaultBranch &&
     a.tokenInfo?.source === b.tokenInfo?.source &&
     a.tokenInfo?.sealed === b.tokenInfo?.sealed &&
-    a.tokenInfo?.expiresAt === b.tokenInfo?.expiresAt
+    a.tokenInfo?.expiresAt === b.tokenInfo?.expiresAt &&
+    sameBurn(a.burn?.auto, b.burn?.auto) &&
+    sameBurn(a.burn?.api, b.burn?.api)
+  );
+}
+
+/**
+ * Burn estimates drift with the clock, so only presence, the afterReset flag,
+ * and the rate (to 0.1%/h) count as a change.
+ */
+function sameBurn(a: BurnEstimate | undefined, b: BurnEstimate | undefined): boolean {
+  if (!a || !b) {
+    return a === b;
+  }
+  return (
+    a.afterReset === b.afterReset &&
+    Math.round(a.ratePerHour * 10) === Math.round(b.ratePerHour * 10)
   );
 }
 
