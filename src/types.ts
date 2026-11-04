@@ -23,6 +23,11 @@ export interface UsageSnapshot {
   thisBranch?: UsageWindow;
   /** Token origin for the footer. Never contains the token. */
   tokenInfo?: TokenInfo;
+  /** Burn-rate estimates from the last-hour window. Absent when not computable. */
+  burn?: {
+    auto?: BurnEstimate;
+    api?: BurnEstimate;
+  };
   /** Active git repo metadata for git-derived windows. */
   git?: {
     repoName: string;
@@ -56,6 +61,16 @@ export interface AuthResult {
   expiresAt?: number;
   /** True when the stored value was safeStorage-sealed and decrypted in memory. */
   sealed?: boolean;
+}
+
+/** Linear extrapolation of the last-hour burn rate. An estimate, not a promise. */
+export interface BurnEstimate {
+  /** Percent points per hour over the sampled span. */
+  ratePerHour: number;
+  /** Epoch ms when the meter reaches 100% at that rate. */
+  limitAtMs: number;
+  /** True when that lands after the billing cycle resets. */
+  afterReset: boolean;
 }
 
 /** Where the token that produced a snapshot came from. Never holds the token. */
