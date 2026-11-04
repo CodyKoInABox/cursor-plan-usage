@@ -1,10 +1,6 @@
 import * as vscode from 'vscode';
-import type {
-  AuthResult,
-  CurrentPeriodUsageResponse,
-  PlanInfoResponse,
-  UsageSnapshot,
-} from './types';
+import { assertUsageShape } from './usageShape';
+import type { AuthResult, PlanInfoResponse, UsageSnapshot } from './types';
 
 function apiBaseUrl(): string {
   return vscode.workspace
@@ -86,11 +82,12 @@ function pickPercent(...values: Array<number | undefined>): number {
  * Endpoints are unofficial Connect-RPC dashboard APIs and may change.
  */
 export async function fetchUsageSnapshot(auth: AuthResult): Promise<UsageSnapshot> {
-  const usage = await postJson<CurrentPeriodUsageResponse>(
+  const usage = await postJson<unknown>(
     '/aiserver.v1.DashboardService/GetCurrentPeriodUsage',
     auth.accessToken,
     {}
   );
+  assertUsageShape(usage);
 
   let planName: string | undefined;
   try {
