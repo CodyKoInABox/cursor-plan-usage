@@ -13,6 +13,7 @@ import { join } from 'path';
 import { Database } from 'node-sqlite3-wasm';
 import {
   defaultUnsealOptions,
+  isSealed,
   unsealToken,
   type UnsealOptions,
 } from './safeStorage';
@@ -57,8 +58,10 @@ function queryAuth(dbPath: string, unseal: UnsealOptions): AuthResult | undefine
     }
     // Decrypt right after the row is read. The plaintext stays in memory only.
     const accessToken = unsealToken(sealedOrPlain, unseal);
+    const sealed = isSealed(sealedOrPlain) ? { sealed: true } : {};
     return {
       accessToken,
+      ...sealed,
       membershipType: readTextItem(db, MEMBERSHIP_KEY),
       email: readTextItem(db, EMAIL_KEY),
       source: 'db',
