@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.0
+
+### Features
+
+- Burn-rate estimate under each meter: the rate from the last hour and the time to 100%, or a note that the cycle resets first. It is an estimate: the rate is extrapolated from one hour and can change quickly. Not shown when the last-hour window is outdated (#29)
+
 ## 0.3.7
 
 ### Features
