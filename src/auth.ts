@@ -1,12 +1,18 @@
 import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
+import { isExpired, jwtExpiresAtMs } from './jwt';
 import { defaultUnsealOptions, unsealToken } from './safeStorage';
 import { readAuthFromStateDb } from './stateDb';
 import type { AuthResult } from './types';
 
 /** vscode.SecretStorage key for optional session-token override. */
 export const SESSION_TOKEN_SECRET_KEY = 'cursorPlanUsage.sessionToken';
+
+const SECRET_EXPIRED_MESSAGE =
+  'The session token override has expired. Set a fresh JWT with “Plan Usage: Set Session Token”, or clear it to use Cursor’s local DB.';
+const DB_EXPIRED_MESSAGE =
+  'Cursor’s local session token has expired. Sign in to Cursor again so it refreshes the token.';
 
 /** In-memory only — never written to disk by this extension. */
 let cachedAuth: { value: AuthResult; expiresAt: number } | undefined;
@@ -164,22 +170,34 @@ export async function resolveAuth(
   opts?: { force?: boolean }
 ): Promise<AuthResult> {
   const now = Date.now();
-  if (!opts?.force && cachedAuth && cachedAuth.expiresAt > now) {
+  // A cached token that has expired is re-read, not reused.
+  if (
+    !opts?.force &&
+    cachedAuth &&
+    cachedAuth.expiresAt > now &&
+    !isExpired(cachedAuth.value.expiresAt, now)
+  ) {
     return cachedAuth.value;
   }
 
   const secretToken = await readSecretToken(context.secrets);
   if (secretToken) {
-    const value: AuthResult = { accessToken: secretToken, source: 'secret' };
-    cachedAuth = { value, expiresAt: now + AUTH_CACHE_TTL_MS };
-    return value;
+    const value: AuthResult = {
+      accessToken: secretToken,
+      source: 'secret',
+      expiresAt: jwtExpiresAtMs(secretToken),
+    };
+    return rememberUsable(value, now, SECRET_EXPIRED_MESSAGE);
   }
 
   try {
     const fromDb = await readFromStateDb();
     if (fromDb?.accessToken) {
-      cachedAuth = { value: fromDb, expiresAt: now + AUTH_CACHE_TTL_MS };
-      return fromDb;
+      const value: AuthResult = {
+        ...fromDb,
+        expiresAt: jwtExpiresAtMs(fromDb.accessToken),
+      };
+      return rememberUsable(value, now, DB_EXPIRED_MESSAGE);
     }
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -189,6 +207,15 @@ export async function resolveAuth(
   throw new Error(
     'No Cursor access token found. Sign in to Cursor, or run “Plan Usage: Set Session Token”.'
   );
+}
+
+/** Cache the token only if it is still valid. Expired tokens never reach the API. */
+function rememberUsable(value: AuthResult, now: number, expiredMessage: string): AuthResult {
+  if (isExpired(value.expiresAt, now)) {
+    throw new Error(expiredMessage);
+  }
+  cachedAuth = { value, expiresAt: now + AUTH_CACHE_TTL_MS };
+  return value;
 }
 
 export async function setSessionTokenSecret(
