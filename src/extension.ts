@@ -8,6 +8,7 @@ import {
   migrateSessionTokenSetting,
   resolveAuth,
   setSessionTokenSecret,
+  watchStateDbForAuth,
 } from './auth';
 import { CursorApiError, fetchUsageSnapshot } from './api';
 import { type GitContext, watchGitContext } from './git';
@@ -321,6 +322,7 @@ export function activate(context: vscode.ExtensionContext): void {
   };
 
   const activityWatcher = watchAiTrackingDb(onAiActivity);
+  const authWatcher = watchStateDbForAuth();
 
   const gitWatcher = watchGitContext((ctx) => {
     const firstEmit = !gitReady;
@@ -480,6 +482,7 @@ export function activate(context: vscode.ExtensionContext): void {
       },
     },
     activityWatcher,
+    authWatcher,
     gitWatcher
   );
 

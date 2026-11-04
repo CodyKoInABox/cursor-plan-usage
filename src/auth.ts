@@ -1,6 +1,8 @@
+import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
+import { type AuthCacheEntry, canReuseAuth } from './authCache';
 import { isExpired, jwtExpiresAtMs } from './jwt';
 import { defaultUnsealOptions, unsealToken } from './safeStorage';
 import { readAuthFromStateDb } from './stateDb';
@@ -15,11 +17,50 @@ const DB_EXPIRED_MESSAGE =
   'Cursor’s local session token has expired. Sign in to Cursor again so it refreshes the token.';
 
 /** In-memory only — never written to disk by this extension. */
-let cachedAuth: { value: AuthResult; expiresAt: number } | undefined;
+let cachedAuth: AuthCacheEntry | undefined;
 const AUTH_CACHE_TTL_MS = 10 * 60 * 1000;
+/** Set when Cursor writes state.vscdb. Cleared by the next successful read. */
+let authStale = false;
 
 export function clearAuthCache(): void {
   cachedAuth = undefined;
+  authStale = false;
+}
+
+/** Mark the cached token as possibly outdated. Re-read is rate-limited in canReuseAuth. */
+export function markAuthStale(): void {
+  authStale = true;
+}
+
+/**
+ * Watch Cursor's globalStorage folder for state.vscdb writes. Cursor rotates its
+ * access token there, so a cached token can go stale between polls.
+ */
+export function watchStateDbForAuth(): vscode.Disposable {
+  const dir = path.dirname(getCursorStateDbPath());
+  if (!fs.existsSync(dir)) {
+    return { dispose: () => undefined };
+  }
+  let watcher: fs.FSWatcher | undefined;
+  try {
+    watcher = fs.watch(dir, { persistent: false }, (_event, filename) => {
+      const name = filename?.toString();
+      if (!name || name === 'state.vscdb' || name === 'state.vscdb-wal') {
+        markAuthStale();
+      }
+    });
+  } catch {
+    return { dispose: () => undefined };
+  }
+  return {
+    dispose: () => {
+      try {
+        watcher?.close();
+      } catch {
+        // ignore
+      }
+    },
+  };
 }
 
 /** Resolve Cursor's globalStorage state.vscdb for the current OS. */
@@ -170,14 +211,9 @@ export async function resolveAuth(
   opts?: { force?: boolean }
 ): Promise<AuthResult> {
   const now = Date.now();
-  // A cached token that has expired is re-read, not reused.
-  if (
-    !opts?.force &&
-    cachedAuth &&
-    cachedAuth.expiresAt > now &&
-    !isExpired(cachedAuth.value.expiresAt, now)
-  ) {
-    return cachedAuth.value;
+  const hit = cachedAuth;
+  if (!opts?.force && hit && canReuseAuth(hit, now, { stale: authStale })) {
+    return hit.value;
   }
 
   const secretToken = await readSecretToken(context.secrets);
@@ -214,7 +250,12 @@ function rememberUsable(value: AuthResult, now: number, expiredMessage: string):
   if (isExpired(value.expiresAt, now)) {
     throw new Error(expiredMessage);
   }
-  cachedAuth = { value, expiresAt: now + AUTH_CACHE_TTL_MS };
+  cachedAuth = {
+    value,
+    readAt: now,
+    expiresAt: now + AUTH_CACHE_TTL_MS,
+  };
+  authStale = false;
   return value;
 }
 
