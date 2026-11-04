@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.3.4
+
+### Fixes
+
+- A usage response with no percent fields (schema change) now shows an error instead of 0% (#27)
+- Expired session tokens are rejected before any request, with a specific message instead of a 401 (#28)
+
+### Pipeline
+
+- CI packages the extension on pull requests, so packaging failures show before a tag is pushed (#24)
+- Release: the GitHub Release is created before publishing to Open VSX. If Open VSX fails, re-run only that job (#25)
+
 ## 0.3.3
 
 ### Fixes
