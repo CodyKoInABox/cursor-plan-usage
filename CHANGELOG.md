@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.3
+
+### Fixes
+
+- Fixed `401 ERROR_NOT_LOGGED_IN` on 0.3.2. When `cursor.storage.authTokenEncryptionAtRest` is on, Cursor stores `cursorAuth/accessToken` as `cursor-safe-storage:v1:` + base64 (Electron safeStorage). 0.3.2 sent that ciphertext as the Bearer token. The token is now decrypted in memory right after it is read from `state.vscdb` and before any request. Windows uses DPAPI for the key plus AES-256-GCM. macOS uses the `Cursor Safe Storage` keychain password plus AES-128-CBC. Linux uses the Secret Service password (or `peanuts`) plus AES-128-CBC. Plain JWTs still pass through unchanged. The `SecretStorage` session-token override is unsealed the same way.
+- Decrypted tokens are never written to disk or logged. The Windows key and keychain/keyring passwords are cached per process.
+- App-bound (`v20`) tokens and decrypt failures (wrong key, bad GCM tag) now show an explicit error instead of a generic 401.
+
 ## 0.3.2
 
 ### Fixes
