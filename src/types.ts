@@ -50,6 +50,8 @@ export interface AuthResult {
   membershipType?: string;
   email?: string;
   source: 'db' | 'secret';
+  /** Epoch ms from the JWT `exp` claim, when the token has one. */
+  expiresAt?: number;
 }
 
 export interface PlanUsageBlock {
