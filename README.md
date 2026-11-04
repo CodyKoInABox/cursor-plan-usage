@@ -80,6 +80,8 @@ There is no `sessionToken` setting — use the Set / Clear Session Token command
 | **Could not read Cursor session from local DB: unable to open database file** | Update to 0.3.2+. 0.3.1 could not open Cursor's WAL-mode `state.vscdb`. |
 | **No token found** | Sign in to Cursor, or run **Plan Usage: Set Session Token** with a valid session token / JWT. |
 | **401 `ERROR_NOT_LOGGED_IN`** | Builds before 0.3.3 sent Cursor's encrypted token (`cursor-safe-storage:v1:…`) as-is. Update to 0.3.3+, which decrypts it in memory. If it still fails, re-sign into Cursor, or set a real JWT via **Plan Usage: Set Session Token**. |
+| **DPAPI unprotect failed: PowerShell …** (Windows) | Windows decryption calls `powershell.exe`. AppLocker, WDAC, or another policy can block it. Use **Plan Usage: Set Session Token** with a JWT. |
+| **Token expired** | The session token is past its `exp`. Sign in to Cursor again, or set a fresh JWT with **Plan Usage: Set Session Token**. |
 | **Remote-SSH / WSL** | The extension runs in the **local** Cursor UI and uses the local session DB. If usage looks wrong in a remote window, use a local window or set a session token override. **Since last commit** / **This branch** need the built-in git API and stay hidden when it is unavailable in remote UI hosts. |
 
 ## Notes
