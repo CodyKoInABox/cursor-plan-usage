@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { debugLog } from './log';
+import { tokenInfoFor } from './tokenInfo';
 import { assertUsageShape } from './usageShape';
 import type { AuthResult, PlanInfoResponse, UsageSnapshot } from './types';
 
@@ -121,6 +122,7 @@ export async function fetchUsageSnapshot(auth: AuthResult): Promise<UsageSnapsho
       : undefined;
 
   return {
+    tokenInfo: tokenInfoFor(auth),
     planName: displayPlan,
     membershipType: membership,
     autoPercentUsed: pickPercent(plan?.autoPercentUsed),

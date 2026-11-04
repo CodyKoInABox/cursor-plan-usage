@@ -194,7 +194,10 @@ function sameUsage(a: UsageSnapshot | undefined, b: UsageSnapshot): boolean {
     a.git?.dirtyFiles === b.git?.dirtyFiles &&
     a.git?.branch === b.git?.branch &&
     a.git?.repoName === b.git?.repoName &&
-    a.git?.isDefaultBranch === b.git?.isDefaultBranch
+    a.git?.isDefaultBranch === b.git?.isDefaultBranch &&
+    a.tokenInfo?.source === b.tokenInfo?.source &&
+    a.tokenInfo?.sealed === b.tokenInfo?.sealed &&
+    a.tokenInfo?.expiresAt === b.tokenInfo?.expiresAt
   );
 }
 
