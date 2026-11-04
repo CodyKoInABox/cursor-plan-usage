@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.3.5
+
+### Fixes
+
+- The cached session token is re-read when Cursor writes `state.vscdb`, at most once a minute, so a rotated token is picked up (#17)
+- Windows: failures that come from PowerShell (blocked by AppLocker or WDAC, timed out, or exited) name the cause and point to Set Session Token (#26)
+
+### Dependencies
+
+- `npm audit` reports 0 vulnerabilities. Dev tooling moved to `@vscode/vsce` 4 and `esbuild` 0.28, with a `minimatch` override (#18)
+
 ## 0.3.4
 
 ### Fixes
