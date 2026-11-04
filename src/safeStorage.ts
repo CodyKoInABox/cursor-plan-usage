@@ -216,6 +216,34 @@ const DPAPI_SCRIPT = [
   '[Console]::Out.Write([Convert]::ToBase64String($k))',
 ].join('; ');
 
+/**
+ * Explain a failed DPAPI call. Covers PowerShell that never started (for
+ * example AppLocker or WDAC), a timeout, a kill, and a non-zero exit.
+ * stderr is PowerShell's own message, never the blob or the key.
+ */
+export function dpapiFailureMessage(result: {
+  error?: NodeJS.ErrnoException;
+  status: number | null;
+  signal: NodeJS.Signals | null;
+  stderr?: string;
+}): string {
+  const workaround =
+    'If PowerShell is blocked on this machine (AppLocker or WDAC), use Plan Usage: Set Session Token instead.';
+  if (result.error) {
+    const reason =
+      result.error.code === 'ETIMEDOUT'
+        ? 'timed out'
+        : `could not start (${result.error.code ?? 'unknown error'})`;
+    return `DPAPI unprotect failed: PowerShell ${reason}. ${workaround}`;
+  }
+  if (result.signal) {
+    return `DPAPI unprotect failed: PowerShell was killed (${result.signal}). ${workaround}`;
+  }
+  const firstLine = (result.stderr ?? '').trim().split(/\r?\n/)[0]?.slice(0, 200);
+  const detail = firstLine ? ` PowerShell said: ${firstLine}.` : '';
+  return `DPAPI unprotect failed: PowerShell exited with code ${result.status}.${detail} ${workaround}`;
+}
+
 /** Blob goes through the environment, not argv. The script is -EncodedCommand. */
 function dpapiUnprotect(blob: Buffer): Buffer {
   const res = spawnSync(
@@ -233,8 +261,8 @@ function dpapiUnprotect(blob: Buffer): Buffer {
       env: { ...process.env, CPU_DPAPI_BLOB: blob.toString('base64') },
     }
   );
-  if (res.error || res.status !== 0) {
-    throw new SafeStorageError('DPAPI unprotect failed (PowerShell)');
+  if (res.error || res.status !== 0 || res.signal) {
+    throw new SafeStorageError(dpapiFailureMessage(res));
   }
   return Buffer.from(res.stdout.trim(), 'base64');
 }
