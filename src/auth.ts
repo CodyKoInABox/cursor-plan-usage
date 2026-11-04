@@ -1,6 +1,7 @@
 import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
+import { defaultUnsealOptions, unsealToken } from './safeStorage';
 import { readAuthFromStateDb } from './stateDb';
 import type { AuthResult } from './types';
 
@@ -85,7 +86,12 @@ async function readSecretToken(
   if (!raw) {
     return undefined;
   }
-  const normalized = normalizeSessionToken(raw);
+  // Unseal in memory before normalizing. Plain JWTs pass through unchanged.
+  const unsealed = unsealToken(
+    raw,
+    defaultUnsealOptions(getCursorStateDbPath())
+  );
+  const normalized = normalizeSessionToken(unsealed);
   return normalized || undefined;
 }
 

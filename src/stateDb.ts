@@ -11,6 +11,11 @@ import {
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { Database } from 'node-sqlite3-wasm';
+import {
+  defaultUnsealOptions,
+  unsealToken,
+  type UnsealOptions,
+} from './safeStorage';
 import type { AuthResult } from './types';
 
 const ACCESS_TOKEN_KEY = 'cursorAuth/accessToken';
@@ -39,13 +44,19 @@ function readTextItem(db: Database, key: string): string | undefined {
   return sqliteText(row.value);
 }
 
-function queryAuth(dbPath: string): AuthResult | undefined {
+/**
+ * `unseal` must describe the ORIGINAL state.vscdb, not a temp copy: the Windows
+ * decryption key lives in Cursor's Local State, found relative to that path.
+ */
+function queryAuth(dbPath: string, unseal: UnsealOptions): AuthResult | undefined {
   const db = new Database(dbPath, { readOnly: true });
   try {
-    const accessToken = readTextItem(db, ACCESS_TOKEN_KEY);
-    if (!accessToken) {
+    const sealedOrPlain = readTextItem(db, ACCESS_TOKEN_KEY);
+    if (!sealedOrPlain) {
       return undefined;
     }
+    // Decrypt right after the row is read. The plaintext stays in memory only.
+    const accessToken = unsealToken(sealedOrPlain, unseal);
     return {
       accessToken,
       membershipType: readTextItem(db, MEMBERSHIP_KEY),
@@ -110,13 +121,16 @@ function disableWalHeader(dbPath: string): void {
   }
 }
 
-function queryAuthFromCopy(dbPath: string): AuthResult | undefined {
+function queryAuthFromCopy(
+  dbPath: string,
+  unseal: UnsealOptions
+): AuthResult | undefined {
   const dir = mkdtempSync(join(tmpdir(), 'cursor-plan-usage-'));
   const tmpPath = join(dir, 'state.vscdb');
   try {
     copyFileSync(dbPath, tmpPath, constants.COPYFILE_FICLONE);
     disableWalHeader(tmpPath);
-    return queryAuth(tmpPath);
+    return queryAuth(tmpPath, unseal);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -131,15 +145,18 @@ function queryAuthFromCopy(dbPath: string): AuthResult | undefined {
  * errors, copy to a temp file, strip the WAL flag on the copy, then query.
  * The live Cursor database is never modified.
  */
-export function readAuthFromStateDb(dbPath: string): AuthResult | undefined {
+export function readAuthFromStateDb(
+  dbPath: string,
+  unseal: UnsealOptions = defaultUnsealOptions(dbPath)
+): AuthResult | undefined {
   if (!fileUsesWal(dbPath)) {
     try {
-      return queryAuth(dbPath);
+      return queryAuth(dbPath, unseal);
     } catch (err) {
       if (!isOpenFailure(err)) {
         throw err;
       }
     }
   }
-  return queryAuthFromCopy(dbPath);
+  return queryAuthFromCopy(dbPath, unseal);
 }

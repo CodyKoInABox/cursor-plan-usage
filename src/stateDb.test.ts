@@ -3,17 +3,23 @@ import {
   closeSync,
   mkdtempSync,
   openSync,
+  readFileSync,
   readSync,
   rmSync,
   statSync,
   truncateSync,
   writeSync,
 } from 'fs';
+import { randomBytes } from 'crypto';
 import { tmpdir } from 'os';
-import { join } from 'path';
+import { dirname, join } from 'path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { Database } from 'node-sqlite3-wasm';
 import { readAuthFromStateDb } from './stateDb';
+import { resetSafeStorageCache } from './safeStorage';
+import { sealWindowsV10, writeLocalState } from './safeStorage.testUtils';
+
+const JWT = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1c2VyXzAxIn0.c2lnbmF0dXJl';
 
 const TWO_GIB = 2 * 1024 ** 3;
 const tempDirs: string[] = [];
@@ -60,6 +66,7 @@ function readHeaderVersions(dbPath: string): [number, number] {
 }
 
 afterEach(() => {
+  resetSafeStorageCache();
   for (const dir of tempDirs.splice(0)) {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -169,4 +176,62 @@ describe('readAuthFromStateDb', () => {
       expect(readHeaderVersions(dbPath)).toEqual([2, 2]);
     }
   );
+});
+
+describe('readAuthFromStateDb with safeStorage-sealed tokens', () => {
+  it('unseals a WAL-mode accessToken and never modifies the source file', () => {
+    const key = randomBytes(32);
+    const dbPath = createStateDb([
+      ['cursorAuth/accessToken', sealWindowsV10(JWT, key)],
+      ['cursorAuth/stripeMembershipType', 'pro'],
+    ]);
+    stampWalHeader(dbPath);
+    const before = readFileSync(dbPath);
+    const localStatePath = writeLocalState(dirname(dbPath), Buffer.from('wrapped'));
+
+    const result = readAuthFromStateDb(dbPath, {
+      platform: 'win32',
+      localStatePath,
+      providers: { dpapiUnprotect: () => key },
+    });
+
+    expect(result).toEqual({
+      accessToken: JWT,
+      membershipType: 'pro',
+      source: 'db',
+    });
+    expect(readHeaderVersions(dbPath)).toEqual([2, 2]);
+    expect(readFileSync(dbPath).equals(before)).toBe(true);
+  });
+
+  it('unseals an accessToken in a database Cursor can open in place', () => {
+    const key = randomBytes(32);
+    const dbPath = createStateDb([
+      ['cursorAuth/accessToken', sealWindowsV10(JWT, key)],
+    ]);
+    const localStatePath = writeLocalState(dirname(dbPath), Buffer.from('wrapped'));
+
+    expect(
+      readAuthFromStateDb(dbPath, {
+        platform: 'win32',
+        localStatePath,
+        providers: { dpapiUnprotect: () => key },
+      })?.accessToken
+    ).toBe(JWT);
+  });
+
+  it('surfaces a decrypt error instead of returning an undefined token', () => {
+    const dbPath = createStateDb([
+      ['cursorAuth/accessToken', sealWindowsV10(JWT, randomBytes(32))],
+    ]);
+    const localStatePath = writeLocalState(dirname(dbPath), Buffer.from('wrapped'));
+
+    expect(() =>
+      readAuthFromStateDb(dbPath, {
+        platform: 'win32',
+        localStatePath,
+        providers: { dpapiUnprotect: () => randomBytes(32) },
+      })
+    ).toThrow(/decrypt failed/);
+  });
 });
