@@ -123,6 +123,11 @@
           ],
           "description": "What the status bar chip shows."
         },
+        "cursorPlanUsage.debug": {
+          "type": "boolean",
+          "default": false,
+          "description": "Write refresh, API, and auth diagnostics to the Plan Usage output channel (View: Toggle Output, then select “Cursor Plan Usage”). Tokens and keys are never logged."
+        },
         "cursorPlanUsage.apiBaseUrl": {
           "type": "string",
           "default": "https://api2.cursor.sh",
