@@ -19,6 +19,7 @@ import {
   normalizeThresholds,
   parseAlertState,
 } from './alerts';
+import { fmtResetCountdown, parseCycleEndMs } from './billing';
 import { describeError } from './errors';
 import { debugChannelDisposable, debugLog } from './log';
 import { type GitContext, watchGitContext } from './git';
@@ -632,6 +633,12 @@ function updateStatusBar(
   const soFar = snapshot.usageSoFar;
   const sinceCommit = snapshot.sinceLastCommit;
   const thisBranch = snapshot.thisBranch;
+  // Countdown is part of the key so the tooltip refreshes when the label changes.
+  const reset =
+    fmtResetCountdown(parseCycleEndMs(snapshot.billingCycleEnd), Date.now()) ??
+    '';
+  const tooltip = (lines: string[]): string =>
+    [...lines, ...(reset ? [reset] : [])].join('\n');
 
   if (mode === 'thisBranch' && thisBranch) {
     const key = [
@@ -641,19 +648,20 @@ function updateStatusBar(
       thisBranch.apiPercentDelta,
       thisBranch.since,
       snapshot.git?.branch ?? '',
+      reset,
     ].join('|');
     if (key === lastStatusKey) {
       return;
     }
     lastStatusKey = key;
     item.text = `$(git-branch) CM +${thisBranch.autoPercentDelta}% · OM +${thisBranch.apiPercentDelta}%`;
-    item.tooltip = [
+    item.tooltip = tooltip([
       `Cursor Plan Usage — ${snapshot.planName}`,
       `This branch${snapshot.git?.branch ? ` (${snapshot.git.branch})` : ''} since ${fmtSinceClock(thisBranch.since)}`,
       `Cursor Models +${thisBranch.autoPercentDelta}%`,
       `Other Models +${thisBranch.apiPercentDelta}%`,
       `Cycle total — CM ${cm}% · OM ${om}%`,
-    ].join('\n');
+    ]);
     return;
   }
 
@@ -664,19 +672,20 @@ function updateStatusBar(
       sinceCommit.autoPercentDelta,
       sinceCommit.apiPercentDelta,
       sinceCommit.since,
+      reset,
     ].join('|');
     if (key === lastStatusKey) {
       return;
     }
     lastStatusKey = key;
     item.text = `$(git-commit) CM +${sinceCommit.autoPercentDelta}% · OM +${sinceCommit.apiPercentDelta}%`;
-    item.tooltip = [
+    item.tooltip = tooltip([
       `Cursor Plan Usage — ${snapshot.planName}`,
       `Since last commit (since ${fmtSinceClock(sinceCommit.since)})`,
       `Cursor Models +${sinceCommit.autoPercentDelta}%`,
       `Other Models +${sinceCommit.apiPercentDelta}%`,
       `Cycle total — CM ${cm}% · OM ${om}%`,
-    ].join('\n');
+    ]);
     return;
   }
 
@@ -687,33 +696,34 @@ function updateStatusBar(
       soFar.autoPercentDelta,
       soFar.apiPercentDelta,
       soFar.since,
+      reset,
     ].join('|');
     if (key === lastStatusKey) {
       return;
     }
     lastStatusKey = key;
     item.text = `$(history) CM +${soFar.autoPercentDelta}% · OM +${soFar.apiPercentDelta}%`;
-    item.tooltip = [
+    item.tooltip = tooltip([
       `Cursor Plan Usage — ${snapshot.planName}`,
       `Usage so far (since ${fmtSinceClock(soFar.since)})`,
       `Cursor Models +${soFar.autoPercentDelta}%`,
       `Other Models +${soFar.apiPercentDelta}%`,
       `Cycle total — CM ${cm}% · OM ${om}%`,
-    ].join('\n');
+    ]);
     return;
   }
 
-  const key = ['absolute', snapshot.planName, cm, om].join('|');
+  const key = ['absolute', snapshot.planName, cm, om, reset].join('|');
   if (key === lastStatusKey) {
     return;
   }
   lastStatusKey = key;
   item.text = `$(dashboard) CM ${cm}% · OM ${om}%`;
-  item.tooltip = [
+  item.tooltip = tooltip([
     `Cursor Plan Usage — ${snapshot.planName}`,
     `Cursor Models ${cm}%`,
     `Other Models ${om}%`,
-  ].join('\n');
+  ]);
 }
 
 export function deactivate(): void {
