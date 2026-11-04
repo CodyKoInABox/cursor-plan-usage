@@ -123,6 +123,25 @@
           ],
           "description": "What the status bar chip shows."
         },
+        "cursorPlanUsage.alerts": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show a warning when Cursor Models or Other Models usage crosses an alert threshold. Each threshold alerts once per billing cycle."
+        },
+        "cursorPlanUsage.alertThresholds": {
+          "type": "array",
+          "items": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "uniqueItems": true,
+          "default": [
+            80,
+            95
+          ],
+          "description": "Usage percentages that trigger a warning, e.g. [80, 95]. Set to [] to turn threshold alerts off."
+        },
         "cursorPlanUsage.debug": {
           "type": "boolean",
           "default": false,

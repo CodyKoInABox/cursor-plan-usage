@@ -11,6 +11,14 @@ import {
   watchStateDbForAuth,
 } from './auth';
 import { CursorApiError, fetchUsageSnapshot } from './api';
+import {
+  alertMessage,
+  cycleKeyFor,
+  DEFAULT_ALERT_THRESHOLDS,
+  decideAlerts,
+  normalizeThresholds,
+  parseAlertState,
+} from './alerts';
 import { describeError } from './errors';
 import { debugChannelDisposable, debugLog } from './log';
 import { type GitContext, watchGitContext } from './git';
@@ -38,6 +46,8 @@ const ACTIVITY_DEBOUNCE_MS = 3_000;
 const BURST_WINDOW_MS = 2 * 60 * 1000;
 const BURST_POLL_MS = 30_000;
 const IDLE_POLL_MS = 3 * 60 * 1000;
+/** globalState key: which alert thresholds already fired this billing cycle. */
+const ALERT_STATE_KEY = 'cursorPlanUsage.alertState';
 
 type RefreshReason = 'manual' | 'poll' | 'focus' | 'activity' | 'config' | 'git';
 type StatusBarMode = 'absolute' | 'usageSoFar' | 'sinceLastCommit' | 'thisBranch';
@@ -140,6 +150,35 @@ export function activate(context: vscode.ExtensionContext): void {
     }
   };
 
+  /**
+   * Warn once per threshold per billing cycle. State is tracked even when
+   * alerts are off, so turning them back on does not re-announce old crossings.
+   */
+  const checkAlerts = async (snapshot: UsageSnapshot): Promise<void> => {
+    const cfg = vscode.workspace.getConfiguration('cursorPlanUsage');
+    const thresholds = normalizeThresholds(
+      cfg.get<unknown>('alertThresholds', [...DEFAULT_ALERT_THRESHOLDS])
+    );
+    const decision = decideAlerts(
+      parseAlertState(context.globalState.get(ALERT_STATE_KEY)),
+      cycleKeyFor(snapshot),
+      [
+        { id: 'auto', label: 'Cursor Models', percent: snapshot.autoPercentUsed },
+        { id: 'api', label: 'Other Models', percent: snapshot.apiPercentUsed },
+      ],
+      thresholds
+    );
+    if (decision.changed) {
+      await context.globalState.update(ALERT_STATE_KEY, decision.state);
+    }
+    if (!cfg.get<boolean>('alerts', true)) {
+      return;
+    }
+    for (const alert of decision.alerts) {
+      void vscode.window.showWarningMessage(alertMessage(alert));
+    }
+  };
+
   const applySnapshot = async (
     snapshot: UsageSnapshot,
     opts?: { force?: boolean }
@@ -147,6 +186,7 @@ export function activate(context: vscode.ExtensionContext): void {
     const stamped = stampGit(snapshot);
     lastSnapshot = stamped;
     await persistWindowsIfNeeded();
+    await checkAlerts(stamped);
     return provider.showUsage(stamped, opts);
   };
 
