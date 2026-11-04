@@ -5,6 +5,7 @@ import * as vscode from 'vscode';
 import { type AuthCacheEntry, canReuseAuth } from './authCache';
 import { TokenError } from './errors';
 import { isExpired, jwtExpiresAtMs } from './jwt';
+import { debugLog } from './log';
 import {
   defaultUnsealOptions,
   SafeStorageError,
@@ -220,6 +221,7 @@ export async function resolveAuth(
   if (!opts?.force && hit && canReuseAuth(hit, now, { stale: authStale })) {
     return hit.value;
   }
+  debugLog(`auth: re-read (forced=${opts?.force === true}, stale=${authStale})`);
 
   const secretToken = await readSecretToken(context.secrets);
   if (secretToken) {
@@ -269,6 +271,13 @@ function rememberUsable(value: AuthResult, now: number, expiredMessage: string):
     expiresAt: now + AUTH_CACHE_TTL_MS,
   };
   authStale = false;
+  debugLog(
+    `auth: source=${value.source}, token expires in ${
+      value.expiresAt === undefined
+        ? 'unknown'
+        : `${Math.round((value.expiresAt - now) / 60_000)}m`
+    }`
+  );
   return value;
 }
 
