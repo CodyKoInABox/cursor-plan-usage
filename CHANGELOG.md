@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.0
+
+### Features
+
+- Optional monthly budget: `cursorPlanUsage.monthlyBudgetPercent` warns once per cycle, per meter, when the end-of-cycle projection passes it. Off by default. Projections start after 5% of the cycle (#51)
+- Warning 24h before the session token expires, once per token. Follows `cursorPlanUsage.alerts` (#52)
+- Collapsed "History" block below the footer: daily gain for Cursor Models and Other Models over the last 14 days. Days without a previous recorded day show as gaps. The top of the panel is unchanged (#53)
+
 ## 0.4.1
 
 ### Fixes
