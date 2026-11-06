@@ -1,0 +1,10 @@
+{
+  "planUsage": {
+    "totalSpend": 0,
+    "includedSpend": 0,
+    "remaining": 2000
+  },
+  "billingCycleStart": "2026-11-01T00:00:00.000Z",
+  "billingCycleEnd": "2026-12-01T00:00:00.000Z",
+  "membershipType": "pro"
+}
