@@ -13,14 +13,18 @@ import {
 import { CursorApiError, fetchUsageSnapshot } from './api';
 import {
   alertMessage,
+  budgetReadings,
   cycleKeyFor,
   DEFAULT_ALERT_THRESHOLDS,
   decideAlerts,
+  type MeterReading,
+  normalizeBudget,
   normalizeThresholds,
   parseAlertState,
 } from './alerts';
 import { fmtResetCountdown, parseCycleEndMs } from './billing';
 import { withBurnEstimates } from './burnRate';
+import { cycleProgressPct, projectCyclePct } from './projection';
 import { describeError } from './errors';
 import { debugChannelDisposable, debugLog } from './log';
 import { type GitContext, watchGitContext } from './git';
@@ -166,13 +170,24 @@ export function activate(context: vscode.ExtensionContext): void {
     const thresholds = normalizeThresholds(
       cfg.get<unknown>('alertThresholds', [...DEFAULT_ALERT_THRESHOLDS])
     );
+    const budget = normalizeBudget(cfg.get<unknown>('monthlyBudgetPercent', 0));
+    const progress = cycleProgressPct(
+      parseCycleEndMs(snapshot.billingCycleStart),
+      parseCycleEndMs(snapshot.billingCycleEnd),
+      Date.now()
+    );
+    const readings: MeterReading[] = [
+      { id: 'auto', label: 'Cursor Models', percent: snapshot.autoPercentUsed },
+      { id: 'api', label: 'Other Models', percent: snapshot.apiPercentUsed },
+      ...budgetReadings(budget, {
+        auto: projectCyclePct(snapshot.autoPercentUsed, progress),
+        api: projectCyclePct(snapshot.apiPercentUsed, progress),
+      }),
+    ];
     const decision = decideAlerts(
       parseAlertState(context.globalState.get(ALERT_STATE_KEY)),
       cycleKeyFor(snapshot),
-      [
-        { id: 'auto', label: 'Cursor Models', percent: snapshot.autoPercentUsed },
-        { id: 'api', label: 'Other Models', percent: snapshot.apiPercentUsed },
-      ],
+      readings,
       thresholds
     );
     if (decision.changed) {
