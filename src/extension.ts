@@ -25,6 +25,7 @@ import {
 import { fmtResetCountdown, parseCycleEndMs } from './billing';
 import { withBurnEstimates } from './burnRate';
 import { cycleProgressPct, projectCyclePct } from './projection';
+import { shouldWarnTokenExpiry, tokenExpiryMessage } from './tokenExpiry';
 import { describeError } from './errors';
 import { debugChannelDisposable, debugLog } from './log';
 import { type GitContext, watchGitContext } from './git';
@@ -54,6 +55,8 @@ const BURST_POLL_MS = 30_000;
 const IDLE_POLL_MS = 3 * 60 * 1000;
 /** globalState key: which alert thresholds already fired this billing cycle. */
 const ALERT_STATE_KEY = 'cursorPlanUsage.alertState';
+/** globalState key: the token expiry (epoch ms) we already warned about. */
+const TOKEN_EXPIRY_WARNED_KEY = 'cursorPlanUsage.tokenExpiryWarnedFor';
 
 type RefreshReason = 'manual' | 'poll' | 'focus' | 'activity' | 'config' | 'git';
 type StatusBarMode = 'absolute' | 'usageSoFar' | 'sinceLastCommit' | 'thisBranch';
@@ -201,6 +204,21 @@ export function activate(context: vscode.ExtensionContext): void {
     }
   };
 
+  /** One warning per token expiry, inside the 24h window. Follows cursorPlanUsage.alerts. */
+  const checkTokenExpiry = async (snapshot: UsageSnapshot): Promise<void> => {
+    const expiresAt = snapshot.tokenInfo?.expiresAt;
+    const now = Date.now();
+    const warnedFor = context.globalState.get<number>(TOKEN_EXPIRY_WARNED_KEY);
+    if (!shouldWarnTokenExpiry(expiresAt, now, warnedFor) || expiresAt === undefined) {
+      return;
+    }
+    await context.globalState.update(TOKEN_EXPIRY_WARNED_KEY, expiresAt);
+    if (!vscode.workspace.getConfiguration('cursorPlanUsage').get<boolean>('alerts', true)) {
+      return;
+    }
+    void vscode.window.showWarningMessage(tokenExpiryMessage(expiresAt, now));
+  };
+
   const applySnapshot = async (
     snapshot: UsageSnapshot,
     opts?: { force?: boolean }
@@ -209,6 +227,7 @@ export function activate(context: vscode.ExtensionContext): void {
     lastSnapshot = stamped;
     await persistWindowsIfNeeded();
     await checkAlerts(stamped);
+    await checkTokenExpiry(stamped);
     return provider.showUsage(stamped, opts);
   };
 

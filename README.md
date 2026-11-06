@@ -69,7 +69,7 @@ After install, open the **Plan Usage** icon in the activity bar, or run **Plan U
 | `cursorPlanUsage.pollIntervalSeconds` | `0` | Idle poll interval (seconds) while focused. `0` = adaptive (30s burst for 2 min after AI activity, then 3 min). Polling pauses while unfocused. |
 | `cursorPlanUsage.refreshOnAiActivity` | `true` | Refresh when Cursor’s local AI tracking DB updates |
 | `cursorPlanUsage.statusBarMode` | `absolute` | `absolute` shows cycle totals (`CM 45% · OM 20%`); `usageSoFar` shows deltas since your last Reset (`CM +4% · OM +2%`); `sinceLastCommit` shows deltas since HEAD while dirty; `thisBranch` shows deltas while the current feature branch is checked out |
-| `cursorPlanUsage.alerts` | `true` | Warn when Cursor Models or Other Models usage crosses a threshold |
+| `cursorPlanUsage.alerts` | `true` | Warn when Cursor Models or Other Models usage crosses a threshold, and 24h before the session token expires |
 | `cursorPlanUsage.alertThresholds` | `[80, 95]` | Percentages that trigger a warning. Each one fires once per meter per billing cycle. Set to `[]` to turn threshold alerts off |
 | `cursorPlanUsage.monthlyBudgetPercent` | `0` | Optional budget as a percent of the plan. Warns once per cycle per meter when the end-of-cycle projection passes it. `0` = off. Projections start after 5% of the cycle |
 | `cursorPlanUsage.apiBaseUrl` | `https://api2.cursor.sh` | Dashboard API base URL |
