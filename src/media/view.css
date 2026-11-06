@@ -368,6 +368,46 @@ body {
   color: var(--muted);
 }
 
+.history {
+  margin-top: 12px;
+}
+
+.history > summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 0.88em;
+  list-style-position: inside;
+}
+
+.history-chart {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin-top: 6px;
+}
+
+.history-bar-cm {
+  fill: var(--bar-cursor);
+}
+
+.history-bar-om {
+  fill: var(--bar-other);
+}
+
+.history-gap {
+  fill: var(--bar-track);
+}
+
+.history-axis {
+  fill: var(--muted);
+  font-size: 8px;
+}
+
+.history-note {
+  font-size: 0.85em;
+  margin: 4px 0;
+}
+
 .meta-value {
   display: inline-block;
   align-self: flex-start;
