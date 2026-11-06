@@ -82,7 +82,7 @@ describe('decideAlerts', () => {
   it('fires once when a threshold is first crossed', () => {
     const first = decideAlerts(undefined, 'c1', [auto(85), api(10)], thresholds);
     expect(first.alerts).toEqual([
-      { label: 'Cursor Models', threshold: 80, percent: 85 },
+      { label: 'Cursor Models', threshold: 80, percent: 85, kind: 'usage' },
     ]);
     expect(first.changed).toBe(true);
 
@@ -100,7 +100,7 @@ describe('decideAlerts', () => {
   it('announces only the highest of several crossed thresholds, but marks all', () => {
     const jump = decideAlerts(undefined, 'c1', [auto(97), api(0)], thresholds);
     expect(jump.alerts).toEqual([
-      { label: 'Cursor Models', threshold: 95, percent: 97 },
+      { label: 'Cursor Models', threshold: 95, percent: 97, kind: 'usage' },
     ]);
     expect(jump.state.notified).toEqual(['auto:80', 'auto:95']);
 
@@ -112,14 +112,14 @@ describe('decideAlerts', () => {
     const at80 = decideAlerts(undefined, 'c1', [auto(81), api(0)], thresholds);
     const at95 = decideAlerts(at80.state, 'c1', [auto(96), api(0)], thresholds);
     expect(at95.alerts).toEqual([
-      { label: 'Cursor Models', threshold: 95, percent: 96 },
+      { label: 'Cursor Models', threshold: 95, percent: 96, kind: 'usage' },
     ]);
   });
 
   it('tracks the two meters independently', () => {
     const d = decideAlerts(undefined, 'c1', [auto(10), api(82)], thresholds);
     expect(d.alerts).toEqual([
-      { label: 'Other Models', threshold: 80, percent: 82 },
+      { label: 'Other Models', threshold: 80, percent: 82, kind: 'usage' },
     ]);
     expect(d.state.notified).toEqual(['api:80']);
   });
@@ -128,7 +128,7 @@ describe('decideAlerts', () => {
     const old = decideAlerts(undefined, 'c1', [auto(90), api(0)], thresholds);
     const next = decideAlerts(old.state, 'c2', [auto(90), api(0)], thresholds);
     expect(next.alerts).toEqual([
-      { label: 'Cursor Models', threshold: 80, percent: 90 },
+      { label: 'Cursor Models', threshold: 80, percent: 90, kind: 'usage' },
     ]);
     expect(next.state.cycle).toBe('c2');
     expect(next.changed).toBe(true);
@@ -149,9 +149,49 @@ describe('decideAlerts', () => {
 describe('alertMessage', () => {
   it('names the meter, rounds the current percent, and names the threshold', () => {
     expect(
-      alertMessage({ label: 'Other Models', threshold: 95, percent: 95.6 })
+      alertMessage({ label: 'Other Models', threshold: 95, percent: 95.6, kind: 'usage' })
     ).toBe(
       'Plan Usage: Other Models at 96%, past your 95% alert this billing cycle.'
     );
+  });
+});
+
+describe('budget readings', () => {
+  it('uses their own threshold list and reports kind budget', () => {
+    const d = decideAlerts(
+      undefined,
+      'c1',
+      [
+        { id: 'auto-budget', label: 'Cursor Models', percent: 104, kind: 'budget', thresholds: [90] },
+        { id: 'api-budget', label: 'Other Models', percent: 40, kind: 'budget', thresholds: [90] },
+      ],
+      [80, 95]
+    );
+    expect(d.alerts).toEqual([
+      { label: 'Cursor Models', threshold: 90, percent: 104, kind: 'budget' },
+    ]);
+    expect(d.state.notified).toEqual(['auto-budget:90']);
+  });
+
+  it('fires once per cycle for the budget too', () => {
+    const first = decideAlerts(
+      undefined,
+      'c1',
+      [{ id: 'auto-budget', label: 'Cursor Models', percent: 104, kind: 'budget', thresholds: [90] }],
+      []
+    );
+    const again = decideAlerts(
+      first.state,
+      'c1',
+      [{ id: 'auto-budget', label: 'Cursor Models', percent: 110, kind: 'budget', thresholds: [90] }],
+      []
+    );
+    expect(again.alerts).toEqual([]);
+  });
+
+  it('words the budget message as a projection', () => {
+    expect(
+      alertMessage({ label: 'Cursor Models', threshold: 90, percent: 104.4, kind: 'budget' })
+    ).toBe('Plan Usage: Cursor Models is projected to reach 104% this cycle, past your 90% budget.');
   });
 });
