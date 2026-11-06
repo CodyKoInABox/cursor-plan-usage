@@ -38,6 +38,11 @@ describe('projectCyclePct', () => {
     expect(projectCyclePct(Number.NaN, 50)).toBeUndefined();
   });
 
+  it('takes a custom minimum progress for the sidebar floor', () => {
+    expect(projectCyclePct(2, 1, 1)).toBeCloseTo(200);
+    expect(projectCyclePct(2, 0.5, 1)).toBeUndefined();
+  });
+
   it('can exceed 100', () => {
     expect(projectCyclePct(80, 40)).toBeCloseTo(200);
   });
