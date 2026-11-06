@@ -455,8 +455,85 @@
       cycle +
       refreshed +
       token +
-      `</div>`;
+      `</div>` +
+      renderHistory(data.history);
     bindResetUsageSoFar();
+    bindHistory();
+  }
+
+  /** Remembers the History toggle across re-renders (renderUsage rewrites the DOM). */
+  let historyOpen = false;
+
+  function bindHistory() {
+    const el = document.getElementById('history');
+    if (!el) return;
+    el.addEventListener('toggle', () => {
+      historyOpen = el.open;
+    });
+  }
+
+  /** Day-of-month without a leading zero, from a YYYY-MM-DD key. */
+  function shortDay(key) {
+    return String(Number(String(key).slice(8, 10)));
+  }
+
+  /**
+   * Inline SVG: one CM and one OM bar per day, scaled to the busiest day
+   * (floor 5% so small usage does not fill the chart). Gaps are a small tick.
+   */
+  function historySvg(days) {
+    const W = 280;
+    const H = 84;
+    const barTop = 4;
+    const barBottom = H - 14;
+    const barSpan = barBottom - barTop;
+    const slot = W / days.length;
+    const barW = Math.max(2, slot * 0.36);
+    const max = Math.max(
+      5,
+      ...days.map((d) => Math.max(typeof d.cm === 'number' ? d.cm : 0, typeof d.om === 'number' ? d.om : 0))
+    );
+    let svg = '';
+    days.forEach((d, i) => {
+      const cx = i * slot + slot / 2;
+      const label = shortDay(d.day);
+      if (typeof d.cm !== 'number' || typeof d.om !== 'number') {
+        svg +=
+          `<g><title>${esc(label)}: no data</title>` +
+          `<rect class="history-gap" x="${cx - 1}" y="${barBottom - 1}" width="2" height="2"/></g>`;
+      } else {
+        const hc = (d.cm / max) * barSpan;
+        const ho = (d.om / max) * barSpan;
+        svg +=
+          `<g><title>${esc(label)}: CM ${esc(fmtDeltaPct(d.cm))} · OM ${esc(fmtDeltaPct(d.om))}</title>` +
+          `<rect class="history-bar-cm" x="${cx - barW}" y="${barBottom - hc}" width="${barW}" height="${hc}"/>` +
+          `<rect class="history-bar-om" x="${cx}" y="${barBottom - ho}" width="${barW}" height="${ho}"/></g>`;
+      }
+      if (i % 2 === 1 || i === days.length - 1) {
+        svg += `<text class="history-axis" x="${cx}" y="${H - 2}" text-anchor="middle">${esc(label)}</text>`;
+      }
+    });
+    return `<svg class="history-chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Daily usage, last ${days.length} days">${svg}</svg>`;
+  }
+
+  /**
+   * Collapsed by default so the top of the panel stays the spend summary.
+   * Each day is the gain over the previous recorded day in the same cycle.
+   */
+  function renderHistory(days) {
+    if (!Array.isArray(days) || days.length === 0) return '';
+    const hasAny = days.some((d) => typeof d.cm === 'number' || typeof d.om === 'number');
+    const body = hasAny
+      ? `<p class="subtitle history-note">Daily gain: <span class="window-stat window-stat-cm">Cursor Models</span> <span class="window-stat window-stat-om">Other Models</span></p>` +
+        historySvg(days) +
+        `<p class="subtitle history-note">Gaps: no previous day recorded in that cycle.</p>`
+      : `<p class="subtitle history-note">History fills in as days pass while Cursor is running.</p>`;
+    return (
+      `<details class="history" id="history"${historyOpen ? ' open' : ''}>` +
+      `<summary>History (last ${days.length} days)</summary>` +
+      body +
+      `</details>`
+    );
   }
 
   function bindRefresh() {
