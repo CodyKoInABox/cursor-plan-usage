@@ -1,11 +1,18 @@
-import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { buildSync } from 'esbuild';
 import { JSDOM } from 'jsdom';
 import { afterEach, describe, expect, it } from 'vitest';
 
-// view.js is a plain browser IIFE (not bundled), so run it in a fresh jsdom
-// window per test. That keeps message listeners from one render out of the next.
-const VIEW_JS = readFileSync(join(__dirname, 'view.js'), 'utf8');
+// Bundle view.js the same way esbuild.js ships it, then run it in a fresh
+// jsdom window per test so message listeners from one render stay out of the next.
+const VIEW_JS = buildSync({
+  entryPoints: [join(__dirname, 'view.js')],
+  bundle: true,
+  format: 'iife',
+  platform: 'browser',
+  target: 'es2020',
+  write: false,
+}).outputFiles![0].text;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 const windows: JSDOM[] = [];
@@ -104,6 +111,20 @@ describe('view.js rendering', () => {
     });
 
     expect(view.app().textContent).not.toContain('by cycle end');
+  });
+
+  it('shows the reset countdown next to the cycle end', () => {
+    const view = mount();
+    // 3d 4h 30m out; 30m of slack keeps the floored value at 3d 4h.
+    const end = Date.now() + (3 * 24 + 4) * 60 * 60 * 1000 + 30 * 60 * 1000;
+    view.send({
+      type: 'usageData',
+      data: usage({ billingCycleEnd: new Date(end).toISOString() }),
+    });
+
+    expect(view.app().querySelector('#reset-countdown')?.textContent).toBe(
+      '· resets in 3d 4h'
+    );
   });
 
   it('escapes plan name HTML', () => {

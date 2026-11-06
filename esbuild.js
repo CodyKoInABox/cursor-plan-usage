@@ -11,10 +11,6 @@ function copyStatic() {
     path.join(__dirname, 'src', 'media', 'view.css'),
     path.join(mediaOut, 'view.css')
   );
-  fs.copyFileSync(
-    path.join(__dirname, 'src', 'media', 'view.js'),
-    path.join(mediaOut, 'view.js')
-  );
 
   const wasmSrc = require.resolve(
     'node-sqlite3-wasm/dist/node-sqlite3-wasm.wasm'
@@ -39,15 +35,34 @@ const buildOptions = {
   logLevel: 'info',
 };
 
+/**
+ * The sidebar script runs in a webview, so it is an IIFE with no imports left.
+ * It bundles the TS helpers from billing.ts and projection.ts.
+ * @type {import('esbuild').BuildOptions}
+ */
+const viewBuildOptions = {
+  entryPoints: ['src/media/view.js'],
+  bundle: true,
+  outfile: 'out/media/view.js',
+  format: 'iife',
+  platform: 'browser',
+  target: 'es2020',
+  minify: !watch,
+  logLevel: 'info',
+};
+
 async function main() {
   copyStatic();
 
   if (watch) {
     const ctx = await esbuild.context(buildOptions);
+    const viewCtx = await esbuild.context(viewBuildOptions);
     await ctx.watch();
+    await viewCtx.watch();
     console.log('watching…');
   } else {
     await esbuild.build(buildOptions);
+    await esbuild.build(viewBuildOptions);
     console.log('build complete');
   }
 }

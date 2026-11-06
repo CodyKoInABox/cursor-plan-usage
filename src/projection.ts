@@ -26,16 +26,19 @@ export function cycleProgressPct(
 
 /**
  * Linear end-of-cycle projection: used / progress. Undefined when progress is
- * unknown or below MIN_PROJECTION_PROGRESS_PCT. The result may exceed 100.
+ * unknown or below minProgressPct (budget alerts use the default; the sidebar
+ * passes a lower floor so its projection shows earlier). The result may exceed
+ * 100.
  */
 export function projectCyclePct(
   usedPct: number,
-  progressPct: number | undefined
+  progressPct: number | undefined,
+  minProgressPct: number = MIN_PROJECTION_PROGRESS_PCT
 ): number | undefined {
   if (
     progressPct === undefined ||
     !Number.isFinite(usedPct) ||
-    progressPct < MIN_PROJECTION_PROGRESS_PCT
+    progressPct < minProgressPct
   ) {
     return undefined;
   }

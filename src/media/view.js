@@ -1,3 +1,6 @@
+import { fmtResetCountdown, parseCycleEndMs } from '../billing';
+import { cycleProgressPct, projectCyclePct } from '../projection';
+
 (function () {
   const vscode = acquireVsCodeApi();
   const app = document.getElementById('app');
@@ -52,29 +55,6 @@
     });
   }
 
-  /** 0–100 how far through [start, end]; null if dates missing/invalid. */
-  function cycleProgressPct(start, end) {
-    const s = parseWhen(start);
-    const e = parseWhen(end);
-    if (!s || !e) return null;
-    const total = e.getTime() - s.getTime();
-    if (total <= 0) return null;
-    return clampPct(((Date.now() - s.getTime()) / total) * 100);
-  }
-
-  /**
-   * Linear extrapolation: used / cycleElapsed → expected % at cycle end.
-   * Returns null if cycle progress is unknown or too early (<1%) to trust.
-   * Value may exceed 100.
-   */
-  function projectEndPct(usedPct, cyclePct) {
-    if (cyclePct == null || cyclePct < 1) return null;
-    const used = typeof usedPct === 'number' && Number.isFinite(usedPct) ? usedPct : 0;
-    const projected = (used / cyclePct) * 100;
-    if (!Number.isFinite(projected)) return null;
-    return Math.max(0, projected);
-  }
-
   function clampPct(n) {
     if (typeof n !== 'number' || !Number.isFinite(n)) return 0;
     return Math.max(0, Math.min(100, n));
@@ -99,7 +79,8 @@
   }
 
   function renderUsageSection(title, subtitle, used, barClass, cyclePct, burn) {
-    const projected = projectEndPct(used, cyclePct);
+    // Sidebar shows the projection from 1% of the cycle; budget alerts wait for 5%.
+    const projected = projectCyclePct(used, cyclePct, 1);
     const projClamp = projected != null ? clampPct(projected) : null;
     const over = projected != null && projected >= 100;
     const projHtml =
@@ -161,18 +142,9 @@
     return `in ${Math.floor(hours / 24)}d`;
   }
 
-  /** "resets in 3d 4h" / "resets in 42m" / "reset pending" — mirrors src/billing.ts. */
+  /** "resets in 3d 4h" / "resets in 42m" / "reset pending", or '' if unknown. */
   function fmtResetIn(value) {
-    const d = parseWhen(value);
-    if (!d) return '';
-    const remaining = d.getTime() - Date.now();
-    if (remaining <= 0) return 'reset pending';
-    const mins = Math.floor(remaining / 60000);
-    if (mins < 1) return 'resets in <1m';
-    if (mins < 60) return `resets in ${mins}m`;
-    const hours = Math.floor(mins / 60);
-    if (hours < 24) return `resets in ${hours}h ${mins % 60}m`;
-    return `resets in ${Math.floor(hours / 24)}d ${hours % 24}h`;
+    return fmtResetCountdown(parseCycleEndMs(value), Date.now()) ?? '';
   }
 
   /** Footer row: where the session token came from, decrypted or not, and its expiry. */
@@ -379,7 +351,11 @@
     const auto = clampPct(data.autoPercentUsed);
     const api = clampPct(data.apiPercentUsed);
     const plan = esc(planTitle(data.planName));
-    const cyclePct = cycleProgressPct(data.billingCycleStart, data.billingCycleEnd);
+    const cyclePct = cycleProgressPct(
+      parseCycleEndMs(data.billingCycleStart),
+      parseCycleEndMs(data.billingCycleEnd),
+      Date.now()
+    );
     const cycleBar =
       cyclePct != null
         ? `<div class="cycle-progress">` +
