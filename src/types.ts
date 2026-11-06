@@ -23,6 +23,8 @@ export interface UsageSnapshot {
   thisBranch?: UsageWindow;
   /** Token origin for the footer. Never contains the token. */
   tokenInfo?: TokenInfo;
+  /** Per-day usage for the history chart, oldest first. */
+  history?: DailyUsage[];
   /** Burn-rate estimates from the last-hour window. Absent when not computable. */
   burn?: {
     auto?: BurnEstimate;
@@ -61,6 +63,14 @@ export interface AuthResult {
   expiresAt?: number;
   /** True when the stored value was safeStorage-sealed and decrypted in memory. */
   sealed?: boolean;
+}
+
+/** Usage gained on one local day. cm/om are absent when the day cannot be derived. */
+export interface DailyUsage {
+  /** Local date, YYYY-MM-DD. */
+  day: string;
+  cm?: number;
+  om?: number;
 }
 
 /** Linear extrapolation of the last-hour burn rate. An estimate, not a promise. */
