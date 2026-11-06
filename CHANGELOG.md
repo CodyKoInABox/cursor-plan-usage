@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.4.1
+
+### Fixes
+
+- A usage response with an empty `planUsage` and a billing cycle end now shows 0% instead of an error. Unknown fields still show an error (#49)
+
+### Pipeline
+
+- CI and release run on `ubuntu-24.04` instead of `ubuntu-latest` (#50)
+
 ## 0.4.0
 
 ### Features
