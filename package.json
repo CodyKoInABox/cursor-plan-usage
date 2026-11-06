@@ -83,6 +83,11 @@
         "category": "Plan Usage"
       },
       {
+        "command": "cursorPlanUsage.exportUsage",
+        "title": "Plan Usage: Export Usage (CSV)",
+        "category": "Plan Usage"
+      },
+      {
         "command": "cursorPlanUsage.copyDiagnostics",
         "title": "Plan Usage: Copy Diagnostics",
         "category": "Plan Usage"
