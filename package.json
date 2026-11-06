@@ -81,6 +81,11 @@
         "command": "cursorPlanUsage.clearSessionToken",
         "title": "Plan Usage: Clear Session Token",
         "category": "Plan Usage"
+      },
+      {
+        "command": "cursorPlanUsage.copyDiagnostics",
+        "title": "Plan Usage: Copy Diagnostics",
+        "category": "Plan Usage"
       }
     ],
     "menus": {

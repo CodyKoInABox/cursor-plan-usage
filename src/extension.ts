@@ -34,7 +34,13 @@ import {
   recordDay,
 } from './history';
 import { describeError } from './errors';
-import { debugChannelDisposable, debugLog } from './log';
+import {
+  debugChannelDisposable,
+  debugEnabled,
+  debugLog,
+  recentDebugLines,
+} from './log';
+import { buildDiagnostics } from './diagnostics';
 import { type GitContext, watchGitContext } from './git';
 import { UsageViewProvider } from './usageViewProvider';
 import type { UsageSnapshot } from './types';
@@ -77,6 +83,8 @@ let refreshing = false;
 let pending: { silent: boolean; force: boolean } | undefined;
 let lastRefreshAt = 0;
 let lastSuccessAt = 0;
+/** ErrorKind of the last failed refresh, cleared on success. For Copy Diagnostics. */
+let lastErrorKind: string | undefined;
 let lastActivityAt = 0;
 let lastStatusKey = '';
 let windowFocused = true;
@@ -253,6 +261,7 @@ export function activate(context: vscode.ExtensionContext): void {
     snapshot: UsageSnapshot,
     opts?: { force?: boolean }
   ): Promise<boolean> => {
+    lastErrorKind = undefined;
     await recordHistory(snapshot);
     const stamped = stampGit(snapshot);
     lastSnapshot = stamped;
@@ -326,6 +335,7 @@ export function activate(context: vscode.ExtensionContext): void {
       }
     } catch (err) {
       const info = describeError(err);
+      lastErrorKind = info.kind;
       const status =
         err instanceof CursorApiError ? ` status=${err.status}` : '';
       debugLog(`refresh failed: kind=${info.kind}${status}`);
@@ -567,6 +577,23 @@ export function activate(context: vscode.ExtensionContext): void {
         const message = err instanceof Error ? err.message : String(err);
         void vscode.window.showErrorMessage(message);
       }
+    }),
+    vscode.commands.registerCommand('cursorPlanUsage.copyDiagnostics', async () => {
+      const text = buildDiagnostics({
+        extensionVersion: String(
+          vscode.extensions.getExtension('CodyKoInABox.cursor-plan-usage')?.packageJSON.version ?? 'unknown'
+        ),
+        vscodeVersion: vscode.version,
+        platform: process.platform,
+        arch: process.arch,
+        token: lastSnapshot?.tokenInfo,
+        lastError: lastErrorKind,
+        debugOn: debugEnabled(),
+        debugLines: recentDebugLines(),
+        nowMs: Date.now(),
+      });
+      await vscode.env.clipboard.writeText(text);
+      void vscode.window.showInformationMessage('Plan Usage diagnostics copied to the clipboard.');
     }),
     vscode.commands.registerCommand('cursorPlanUsage.clearSessionToken', async () => {
       await clearSessionTokenSecret(context.secrets);
