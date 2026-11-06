@@ -55,6 +55,22 @@ async function postJson<T>(
   return (await res.json()) as T;
 }
 
+/**
+ * Debug probe only (see the probe command): per-day aggregated usage for
+ * [startMs, endMs). Not used by the sidebar yet.
+ */
+export async function fetchAggregatedUsage(
+  auth: AuthResult,
+  startMs: number,
+  endMs: number
+): Promise<unknown> {
+  return postJson<unknown>(
+    '/aiserver.v1.DashboardService/GetAggregatedUsageEvents',
+    auth.accessToken,
+    { startDate: String(startMs), endDate: String(endMs) }
+  );
+}
+
 function titleCasePlan(membershipType?: string): string {
   if (!membershipType) {
     return 'Pro';

@@ -36,6 +36,12 @@ export function debugLog(message: string): void {
   }
 }
 
+/** Brings the output channel to the front. Used by the debug-only probe. */
+export function showDebugChannel(): void {
+  channel ??= vscode.window.createOutputChannel('Cursor Plan Usage');
+  channel.show(true);
+}
+
 /** Disposes the output channel with the extension. */
 export function debugChannelDisposable(): vscode.Disposable {
   return {

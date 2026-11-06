@@ -10,7 +10,11 @@ import {
   setSessionTokenSecret,
   watchStateDbForAuth,
 } from './auth';
-import { CursorApiError, fetchUsageSnapshot } from './api';
+import {
+  CursorApiError,
+  fetchAggregatedUsage,
+  fetchUsageSnapshot,
+} from './api';
 import {
   alertMessage,
   budgetReadings,
@@ -39,7 +43,9 @@ import {
   debugEnabled,
   debugLog,
   recentDebugLines,
+  showDebugChannel,
 } from './log';
+import { probeDays, summarizeAggregation } from './usageProbe';
 import { buildDiagnostics } from './diagnostics';
 import { toUsageCsv } from './exportCsv';
 import { type GitContext, watchGitContext } from './git';
@@ -58,6 +64,8 @@ import {
 } from './usageWindows';
 
 /** Hard floor between API calls (except force). */
+/** Days the debug-only daily usage probe asks about (one request each). */
+const PROBE_DAYS = 14;
 const MIN_REFRESH_GAP_MS = 12_000;
 /** Refetch on focus/panel if older than this. */
 const STALE_ON_FOCUS_MS = 15_000;
@@ -620,6 +628,36 @@ export function activate(context: vscode.ExtensionContext): void {
       });
       await vscode.env.clipboard.writeText(text);
       void vscode.window.showInformationMessage('Plan Usage diagnostics copied to the clipboard.');
+    }),
+    vscode.commands.registerCommand('cursorPlanUsage.probeDailyUsage', async () => {
+      if (!debugEnabled()) {
+        void vscode.window.showInformationMessage(
+          'Turn on cursorPlanUsage.debug first. The probe writes to the Plan Usage output channel.'
+        );
+        return;
+      }
+      let auth: Awaited<ReturnType<typeof resolveAuth>>;
+      try {
+        auth = await resolveAuth(context);
+      } catch (err) {
+        debugLog(`probe: no auth: ${err instanceof Error ? err.message : String(err)}`);
+        showDebugChannel();
+        return;
+      }
+      const days = probeDays(localDayKey(new Date()), PROBE_DAYS);
+      debugLog(`probe: GetAggregatedUsageEvents for ${days.length} local days, newest first`);
+      for (const d of days) {
+        try {
+          const body = await fetchAggregatedUsage(auth, d.startMs, d.endMs);
+          debugLog(`probe ${d.day} [${d.startMs}, ${d.endMs})`);
+          for (const line of summarizeAggregation(body)) {
+            debugLog(`  ${line}`);
+          }
+        } catch (err) {
+          debugLog(`probe ${d.day} failed: ${err instanceof Error ? err.message : String(err)}`);
+        }
+      }
+      showDebugChannel();
     }),
     vscode.commands.registerCommand('cursorPlanUsage.clearSessionToken', async () => {
       await clearSessionTokenSecret(context.secrets);

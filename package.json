@@ -91,6 +91,11 @@
         "command": "cursorPlanUsage.copyDiagnostics",
         "title": "Plan Usage: Copy Diagnostics",
         "category": "Plan Usage"
+      },
+      {
+        "command": "cursorPlanUsage.probeDailyUsage",
+        "title": "Plan Usage: Probe Daily Usage API (debug)",
+        "category": "Plan Usage"
       }
     ],
     "menus": {
@@ -99,6 +104,12 @@
           "command": "cursorPlanUsage.refresh",
           "when": "view == cursorPlanUsage.panel",
           "group": "navigation"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "cursorPlanUsage.probeDailyUsage",
+          "when": "config.cursorPlanUsage.debug"
         }
       ]
     },
