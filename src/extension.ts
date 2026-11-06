@@ -41,6 +41,7 @@ import {
   recentDebugLines,
 } from './log';
 import { buildDiagnostics } from './diagnostics';
+import { toUsageCsv } from './exportCsv';
 import { type GitContext, watchGitContext } from './git';
 import { UsageViewProvider } from './usageViewProvider';
 import type { UsageSnapshot } from './types';
@@ -577,6 +578,31 @@ export function activate(context: vscode.ExtensionContext): void {
         const message = err instanceof Error ? err.message : String(err);
         void vscode.window.showErrorMessage(message);
       }
+    }),
+    vscode.commands.registerCommand('cursorPlanUsage.exportUsage', async () => {
+      if (dailyRecords.length === 0) {
+        void vscode.window.showInformationMessage(
+          'Plan Usage: no usage history to export yet.'
+        );
+        return;
+      }
+      const uri = await vscode.window.showSaveDialog({
+        defaultUri: vscode.Uri.file(
+          path.join(os.homedir(), `cursor-plan-usage-${localDayKey(new Date())}.csv`)
+        ),
+        filters: { CSV: ['csv'] },
+        saveLabel: 'Export',
+      });
+      if (!uri) {
+        return;
+      }
+      await vscode.workspace.fs.writeFile(
+        uri,
+        Buffer.from(toUsageCsv(dailyRecords), 'utf8')
+      );
+      void vscode.window.showInformationMessage(
+        `Plan Usage: exported ${dailyRecords.length} day${dailyRecords.length === 1 ? '' : 's'} to ${uri.fsPath}.`
+      );
     }),
     vscode.commands.registerCommand('cursorPlanUsage.copyDiagnostics', async () => {
       const text = buildDiagnostics({
