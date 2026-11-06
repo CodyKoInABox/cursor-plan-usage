@@ -6,6 +6,7 @@ import { type AuthCacheEntry, canReuseAuth } from './authCache';
 import { TokenError } from './errors';
 import { isExpired, jwtExpiresAtMs } from './jwt';
 import { debugLog } from './log';
+import { cursorStateDbPathFor } from './paths';
 import {
   defaultUnsealOptions,
   isSealed,
@@ -72,36 +73,7 @@ export function watchStateDbForAuth(): vscode.Disposable {
 
 /** Resolve Cursor's globalStorage state.vscdb for the current OS. */
 export function getCursorStateDbPath(): string {
-  const home = os.homedir();
-  switch (process.platform) {
-    case 'win32':
-      return path.join(
-        process.env.APPDATA ?? path.join(home, 'AppData', 'Roaming'),
-        'Cursor',
-        'User',
-        'globalStorage',
-        'state.vscdb'
-      );
-    case 'darwin':
-      return path.join(
-        home,
-        'Library',
-        'Application Support',
-        'Cursor',
-        'User',
-        'globalStorage',
-        'state.vscdb'
-      );
-    default:
-      return path.join(
-        home,
-        '.config',
-        'Cursor',
-        'User',
-        'globalStorage',
-        'state.vscdb'
-      );
-  }
+  return cursorStateDbPathFor(process.platform, os.homedir(), process.env.APPDATA);
 }
 
 /**
