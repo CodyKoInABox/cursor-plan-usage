@@ -181,10 +181,12 @@
     "package": "vsce package --no-dependencies"
   },
   "devDependencies": {
+    "@types/jsdom": "^21.1.7",
     "@types/node": "^20.17.0",
     "@types/vscode": "^1.85.0",
     "@vscode/vsce": "^4.1.0",
     "esbuild": "^0.28.2",
+    "jsdom": "^26.1.0",
     "typescript": "^5.7.2",
     "vitest": "^4.1.10"
   },
