@@ -14,6 +14,39 @@ describe('assertUsageShape', () => {
     ).not.toThrow();
   });
 
+  it('accepts an empty planUsage when the cycle end is present (zero usage)', () => {
+    expect(() =>
+      assertUsageShape({
+        planUsage: {},
+        billingCycleEnd: '2026-12-01T00:00:00.000Z',
+      })
+    ).not.toThrow();
+  });
+
+  it('accepts spend-only planUsage with a numeric cycle end', () => {
+    expect(() =>
+      assertUsageShape({
+        planUsage: { totalSpend: 0, limit: 2000 },
+        billingCycleEnd: 1_790_000_000,
+      })
+    ).not.toThrow();
+  });
+
+  it('rejects an empty planUsage without a cycle end', () => {
+    expect(() => assertUsageShape({ planUsage: {} })).toThrow(
+      UnexpectedResponseError
+    );
+  });
+
+  it('rejects planUsage with an unknown key (possible schema change)', () => {
+    expect(() =>
+      assertUsageShape({
+        planUsage: { autoPercentRenamed: 12 },
+        billingCycleEnd: 1_790_000_000,
+      })
+    ).toThrow(/no percent fields/);
+  });
+
   it('rejects a non-object body', () => {
     expect(() => assertUsageShape(null)).toThrow(UnexpectedResponseError);
     expect(() => assertUsageShape('ok')).toThrow(UnexpectedResponseError);
@@ -25,7 +58,7 @@ describe('assertUsageShape', () => {
     );
   });
 
-  it('rejects planUsage with no percent fields, even if spend is present', () => {
+  it('rejects planUsage with no percent fields and no cycle end', () => {
     expect(() =>
       assertUsageShape({ planUsage: { totalSpend: 1234, limit: 2000 } })
     ).toThrow(/no percent fields/);
