@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   EXPIRY_WARNING_MS,
+  fmtTokenExpiry,
   shouldWarnTokenExpiry,
   tokenExpiryMessage,
 } from './tokenExpiry';
@@ -39,6 +40,15 @@ describe('shouldWarnTokenExpiry', () => {
     const old = NOW + 5 * HOUR;
     const renewed = NOW + 10 * HOUR;
     expect(shouldWarnTokenExpiry(renewed, NOW, old)).toBe(true);
+  });
+});
+
+describe('fmtTokenExpiry', () => {
+  it('formats hours, minutes, expired, and unknown', () => {
+    expect(fmtTokenExpiry(NOW + 23 * HOUR, NOW)).toBe('in 23h');
+    expect(fmtTokenExpiry(NOW + 45 * 60_000, NOW)).toBe('in 45m');
+    expect(fmtTokenExpiry(NOW - 1, NOW)).toBe('expired');
+    expect(fmtTokenExpiry(undefined, NOW)).toBe('unknown (no exp)');
   });
 });
 

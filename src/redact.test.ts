@@ -23,3 +23,11 @@ describe('redactSecrets', () => {
     expect(redactSecrets(plain)).toBe(plain);
   });
 });
+
+
+describe('redactSecrets emails', () => {
+  it('replaces email addresses', () => {
+    expect(redactSecrets('user person@example.com here')).toBe('user <email> here');
+  });
+});
+

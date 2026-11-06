@@ -7,6 +7,8 @@ const PATTERNS: Array<[RegExp, string]> = [
   [/eyJ[A-Za-z0-9_-]{4,}\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]*/g, '<jwt>'],
   // WorkosCursorSessionToken: user_…::<jwt>.
   [/user_[A-Za-z0-9]+::/g, 'user_<redacted>::'],
+  // Email addresses (account names in error bodies or cached auth).
+  [/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g, '<email>'],
   // Electron safeStorage ciphertext as stored by Cursor.
   [/cursor-safe-storage:v1:[A-Za-z0-9+/=]+/g, '<sealed>'],
 ];
