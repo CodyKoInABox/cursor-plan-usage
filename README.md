@@ -22,6 +22,8 @@
 - **Since last commit** — plan % burned while the working tree is dirty; resets on each commit. Hidden when the tree is clean
 - **This branch** — plan % while a feature branch is checked out; pauses on `main` / other branches and restores when you return. Hidden on the default branch
 - **Smart refresh** — updates on focus and AI activity; pauses when Cursor is unfocused
+- **Alerts** — warns at 80% and 95% by default, optional monthly budget projection, and a warning 24h before the session token expires
+- **Usage history** — 14-day CM / OM chart, collapsed under the meters so the top of the panel stays clean
 
 
 ## UI Example
@@ -59,6 +61,8 @@ After install, open the **Plan Usage** icon in the activity bar, or run **Plan U
 | **Plan Usage: Refresh** | Force-refresh usage from the API |
 | **Plan Usage: Set Session Token** | Store an optional session token in SecretStorage (overrides the local DB while set) |
 | **Plan Usage: Clear Session Token** | Remove the override and fall back to Cursor’s local DB |
+| **Plan Usage: Export Usage (CSV)** | Save the daily history (up to 35 days) as CSV: date, cycle, CM peak %, OM peak %. No token or account data |
+| **Plan Usage: Copy Diagnostics** | Copy versions, platform, token origin and expiry (never the value), the last error kind, and recent debug lines when debug is on. Emails and tokens are redacted |
 
 **Auth order:** SecretStorage override (if set) → otherwise token from Cursor’s local `state.vscdb`.
 
@@ -76,7 +80,13 @@ After install, open the **Plan Usage** icon in the activity bar, or run **Plan U
 
 There is no `sessionToken` setting — use the Set / Clear Session Token commands instead.
 
+## Platforms
+
+Windows is the tested platform. macOS and Linux state DB paths and the keychain / `secret-tool` lookups are covered by unit tests, but have not been validated on real installs. If something breaks there, Copy Diagnostics output is the most useful thing you can send.
+
 ## Troubleshooting
+
+Before opening an issue, run **Plan Usage: Copy Diagnostics** and paste the output. It is redacted, but read it once before sharing.
 
 | Symptom | Fix |
 | --- | --- |
