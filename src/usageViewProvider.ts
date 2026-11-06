@@ -199,7 +199,8 @@ function sameUsage(a: UsageSnapshot | undefined, b: UsageSnapshot): boolean {
     a.tokenInfo?.sealed === b.tokenInfo?.sealed &&
     a.tokenInfo?.expiresAt === b.tokenInfo?.expiresAt &&
     sameBurn(a.burn?.auto, b.burn?.auto) &&
-    sameBurn(a.burn?.api, b.burn?.api)
+    sameBurn(a.burn?.api, b.burn?.api) &&
+    JSON.stringify(a.history ?? []) === JSON.stringify(b.history ?? [])
   );
 }
 

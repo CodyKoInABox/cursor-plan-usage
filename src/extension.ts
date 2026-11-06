@@ -26,6 +26,13 @@ import { fmtResetCountdown, parseCycleEndMs } from './billing';
 import { withBurnEstimates } from './burnRate';
 import { cycleProgressPct, projectCyclePct } from './projection';
 import { shouldWarnTokenExpiry, tokenExpiryMessage } from './tokenExpiry';
+import {
+  type DailyRecord,
+  dailyUsage,
+  localDayKey,
+  parseDailyRecords,
+  recordDay,
+} from './history';
 import { describeError } from './errors';
 import { debugChannelDisposable, debugLog } from './log';
 import { type GitContext, watchGitContext } from './git';
@@ -57,6 +64,9 @@ const IDLE_POLL_MS = 3 * 60 * 1000;
 const ALERT_STATE_KEY = 'cursorPlanUsage.alertState';
 /** globalState key: the token expiry (epoch ms) we already warned about. */
 const TOKEN_EXPIRY_WARNED_KEY = 'cursorPlanUsage.tokenExpiryWarnedFor';
+/** globalState key: one peak record per local day for the history chart. */
+const DAILY_RECORDS_KEY = 'cursorPlanUsage.dailyRecords';
+let dailyRecords: DailyRecord[] = [];
 
 type RefreshReason = 'manual' | 'poll' | 'focus' | 'activity' | 'config' | 'git';
 type StatusBarMode = 'absolute' | 'usageSoFar' | 'sinceLastCommit' | 'thisBranch';
@@ -81,7 +91,10 @@ const windowTracker = new UsageWindowTracker();
  * git change). Burn estimates are derived here so they never go stale.
  */
 function stampGit(input: UsageSnapshot): UsageSnapshot {
-  const snapshot = withBurnEstimates(input);
+  const snapshot: UsageSnapshot = {
+    ...withBurnEstimates(input),
+    history: dailyUsage(dailyRecords, localDayKey(new Date())),
+  };
   if (!gitReady || !lastGitContext) {
     const { git: _g, sinceLastCommit: _s, thisBranch: _t, ...rest } = snapshot;
     return rest;
@@ -106,6 +119,7 @@ function stampGit(input: UsageSnapshot): UsageSnapshot {
 
 export function activate(context: vscode.ExtensionContext): void {
   const provider = new UsageViewProvider(context.extensionUri);
+  dailyRecords = parseDailyRecords(context.globalState.get(DAILY_RECORDS_KEY));
   const statusBar = vscode.window.createStatusBarItem(
     vscode.StatusBarAlignment.Right,
     100
@@ -204,6 +218,22 @@ export function activate(context: vscode.ExtensionContext): void {
     }
   };
 
+  /** Keep today's peak for the history chart. Writes only when a value changes. */
+  const recordHistory = async (snapshot: UsageSnapshot): Promise<void> => {
+    const next = recordDay(
+      dailyRecords,
+      localDayKey(new Date()),
+      cycleKeyFor(snapshot),
+      snapshot.autoPercentUsed,
+      snapshot.apiPercentUsed
+    );
+    if (JSON.stringify(next) === JSON.stringify(dailyRecords)) {
+      return;
+    }
+    dailyRecords = next;
+    await context.globalState.update(DAILY_RECORDS_KEY, next);
+  };
+
   /** One warning per token expiry, inside the 24h window. Follows cursorPlanUsage.alerts. */
   const checkTokenExpiry = async (snapshot: UsageSnapshot): Promise<void> => {
     const expiresAt = snapshot.tokenInfo?.expiresAt;
@@ -223,6 +253,7 @@ export function activate(context: vscode.ExtensionContext): void {
     snapshot: UsageSnapshot,
     opts?: { force?: boolean }
   ): Promise<boolean> => {
+    await recordHistory(snapshot);
     const stamped = stampGit(snapshot);
     lastSnapshot = stamped;
     await persistWindowsIfNeeded();
