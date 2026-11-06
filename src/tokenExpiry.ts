@@ -21,11 +21,25 @@ export function shouldWarnTokenExpiry(
   return remaining > 0 && remaining <= EXPIRY_WARNING_MS;
 }
 
-/** "in 23h" or "in 45m" for the warning text. */
-export function tokenExpiryMessage(expiresAtMs: number, nowMs: number): string {
-  const remaining = Math.max(0, expiresAtMs - nowMs);
+/**
+ * "in 23h" / "in 45m" until expiry, "expired", or "unknown (no exp)" for
+ * opaque tokens. Shared by the warning text and the diagnostics report.
+ */
+export function fmtTokenExpiry(expiresAtMs: number | undefined, nowMs: number): string {
+  if (expiresAtMs === undefined || !Number.isFinite(expiresAtMs)) {
+    return 'unknown (no exp)';
+  }
+  const remaining = expiresAtMs - nowMs;
+  if (remaining <= 0) {
+    return 'expired';
+  }
   const hours = Math.floor(remaining / 3_600_000);
-  const when =
-    hours >= 1 ? `${hours}h` : `${Math.max(1, Math.floor(remaining / 60_000))}m`;
-  return `Plan Usage: session token expires in ${when}. Keep Cursor signed in, or set a new session token.`;
+  return hours >= 1
+    ? `in ${hours}h`
+    : `in ${Math.max(1, Math.floor(remaining / 60_000))}m`;
+}
+
+/** Warning text shown 24h or less before the session token expires. */
+export function tokenExpiryMessage(expiresAtMs: number, nowMs: number): string {
+  return `Plan Usage: session token expires ${fmtTokenExpiry(expiresAtMs, nowMs)}. Keep Cursor signed in, or set a new session token.`;
 }
