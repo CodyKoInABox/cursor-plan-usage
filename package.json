@@ -142,6 +142,13 @@
           ],
           "description": "Usage percentages that trigger a warning, e.g. [80, 95]. Set to [] to turn threshold alerts off."
         },
+        "cursorPlanUsage.monthlyBudgetPercent": {
+          "type": "number",
+          "default": 0,
+          "minimum": 0,
+          "maximum": 1000,
+          "description": "Optional budget as a percent of the plan. Warns once per cycle per meter when the end-of-cycle projection is above it. 0 = off. Projections are shown only after 5% of the cycle has passed."
+        },
         "cursorPlanUsage.debug": {
           "type": "boolean",
           "default": false,

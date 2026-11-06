@@ -3,11 +3,16 @@ import type { UsageSnapshot } from './types';
 /** Used when `cursorPlanUsage.alertThresholds` is not an array. */
 export const DEFAULT_ALERT_THRESHOLDS: readonly number[] = [80, 95];
 
-/** One meter (Cursor Models or Other Models) at its current cycle percent. */
+/**
+ * One meter at a percent to test. `usage` readings use the global thresholds;
+ * `budget` readings (projected cycle end) use their own single threshold.
+ */
 export interface MeterReading {
-  id: 'auto' | 'api';
+  id: string;
   label: string;
   percent: number;
+  kind?: 'usage' | 'budget';
+  thresholds?: readonly number[];
 }
 
 /**
@@ -24,6 +29,7 @@ export interface PendingAlert {
   /** Highest threshold crossed in this refresh (one toast per meter). */
   threshold: number;
   percent: number;
+  kind: 'usage' | 'budget';
 }
 
 export interface AlertDecision {
@@ -83,7 +89,7 @@ export function parseAlertState(value: unknown): AlertState | undefined {
   return { cycle: v.cycle, notified };
 }
 
-function thresholdKey(id: MeterReading['id'], threshold: number): string {
+function thresholdKey(id: string, threshold: number): string {
   return `${id}:${threshold}`;
 }
 
@@ -104,7 +110,8 @@ export function decideAlerts(
   const alerts: PendingAlert[] = [];
 
   for (const r of readings) {
-    const crossed = thresholds.filter(
+    const limits = r.thresholds ?? thresholds;
+    const crossed = limits.filter(
       (t) => r.percent >= t && !notified.has(thresholdKey(r.id, t))
     );
     if (crossed.length === 0) {
@@ -117,6 +124,7 @@ export function decideAlerts(
       label: r.label,
       threshold: Math.max(...crossed),
       percent: r.percent,
+      kind: r.kind ?? 'usage',
     });
   }
 
@@ -131,5 +139,50 @@ export function decideAlerts(
 /** Toast text for one pending alert. */
 export function alertMessage(alert: PendingAlert): string {
   const now = Math.round(alert.percent);
+  if (alert.kind === 'budget') {
+    return `Plan Usage: ${alert.label} is projected to reach ${now}% this cycle, past your ${alert.threshold}% budget.`;
+  }
   return `Plan Usage: ${alert.label} at ${now}%, past your ${alert.threshold}% alert this billing cycle.`;
+}
+
+/** Clamp `cursorPlanUsage.monthlyBudgetPercent`: whole number 1–1000, else 0 (off). */
+export function normalizeBudget(value: unknown): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return 0;
+  }
+  const r = Math.round(value);
+  return r >= 1 && r <= 1000 ? r : 0;
+}
+
+/**
+ * Budget readings for the projected cycle end of each meter. Empty when the
+ * budget is off or a meter has no projection (too early in the cycle).
+ */
+export function budgetReadings(
+  budget: number,
+  projected: { auto?: number; api?: number }
+): MeterReading[] {
+  if (!(budget > 0)) {
+    return [];
+  }
+  const out: MeterReading[] = [];
+  if (projected.auto !== undefined) {
+    out.push({
+      id: 'auto-budget',
+      label: 'Cursor Models',
+      percent: projected.auto,
+      kind: 'budget',
+      thresholds: [budget],
+    });
+  }
+  if (projected.api !== undefined) {
+    out.push({
+      id: 'api-budget',
+      label: 'Other Models',
+      percent: projected.api,
+      kind: 'budget',
+      thresholds: [budget],
+    });
+  }
+  return out;
 }
