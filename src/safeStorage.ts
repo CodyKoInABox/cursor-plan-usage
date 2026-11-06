@@ -46,9 +46,12 @@ export function localStatePathFor(stateDbPath: string): string {
   return join(dirname(stateDbPath), '..', '..', 'Local State');
 }
 
-export function defaultUnsealOptions(stateDbPath: string): UnsealOptions {
+export function defaultUnsealOptions(
+  stateDbPath: string,
+  platform: NodeJS.Platform = process.platform
+): UnsealOptions {
   return {
-    platform: process.platform,
+    platform,
     localStatePath: localStatePathFor(stateDbPath),
   };
 }
@@ -281,10 +284,18 @@ function macKeychainPassword(opts: UnsealOptions): string {
   return cache.keychainPassword;
 }
 
+/** `security` arguments for the macOS keychain item Electron creates for Cursor. */
+export const KEYCHAIN_LOOKUP_ARGS: readonly string[] = [
+  'find-generic-password',
+  '-s',
+  'Cursor Safe Storage',
+  '-w',
+];
+
 function readKeychainPassword(): string | undefined {
   const res = spawnSync(
     'security',
-    ['find-generic-password', '-s', 'Cursor Safe Storage', '-w'],
+    [...KEYCHAIN_LOOKUP_ARGS],
     { encoding: 'utf8', windowsHide: true, timeout: 60_000 }
   );
   if (res.error || res.status !== 0) {
@@ -294,7 +305,7 @@ function readKeychainPassword(): string | undefined {
 }
 
 /** Electron/Chromium libsecret entries, in lookup order. */
-const SECRET_TOOL_LOOKUPS: string[][] = [
+export const SECRET_TOOL_LOOKUPS: string[][] = [
   ['xdg:schema', 'chrome_libsecret_os_crypt_password_v2', 'application', 'cursor'],
   ['service', 'Cursor Safe Storage', 'account', 'Cursor'],
   ['service', 'Cursor Safe Storage', 'account', 'cursor'],
