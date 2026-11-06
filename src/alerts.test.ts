@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   alertMessage,
+  budgetReadings,
+  normalizeBudget,
   cycleKeyFor,
   decideAlerts,
   DEFAULT_ALERT_THRESHOLDS,
@@ -193,5 +195,33 @@ describe('budget readings', () => {
     expect(
       alertMessage({ label: 'Cursor Models', threshold: 90, percent: 104.4, kind: 'budget' })
     ).toBe('Plan Usage: Cursor Models is projected to reach 104% this cycle, past your 90% budget.');
+  });
+});
+
+describe('normalizeBudget', () => {
+  it('is off (0) for missing, invalid, or out-of-range values', () => {
+    expect(normalizeBudget(undefined)).toBe(0);
+    expect(normalizeBudget(0)).toBe(0);
+    expect(normalizeBudget(-5)).toBe(0);
+    expect(normalizeBudget(1001)).toBe(0);
+    expect(normalizeBudget(Number.NaN)).toBe(0);
+    expect(normalizeBudget('90')).toBe(0);
+  });
+
+  it('rounds valid values', () => {
+    expect(normalizeBudget(90.4)).toBe(90);
+    expect(normalizeBudget(1000)).toBe(1000);
+  });
+});
+
+describe('budgetReadings', () => {
+  it('is empty when the budget is off', () => {
+    expect(budgetReadings(0, { auto: 200, api: 200 })).toEqual([]);
+  });
+
+  it('skips meters with no projection', () => {
+    expect(budgetReadings(90, { auto: 120 })).toEqual([
+      { id: 'auto-budget', label: 'Cursor Models', percent: 120, kind: 'budget', thresholds: [90] },
+    ]);
   });
 });

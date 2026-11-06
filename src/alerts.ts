@@ -144,3 +144,45 @@ export function alertMessage(alert: PendingAlert): string {
   }
   return `Plan Usage: ${alert.label} at ${now}%, past your ${alert.threshold}% alert this billing cycle.`;
 }
+
+/** Clamp `cursorPlanUsage.monthlyBudgetPercent`: whole number 1–1000, else 0 (off). */
+export function normalizeBudget(value: unknown): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return 0;
+  }
+  const r = Math.round(value);
+  return r >= 1 && r <= 1000 ? r : 0;
+}
+
+/**
+ * Budget readings for the projected cycle end of each meter. Empty when the
+ * budget is off or a meter has no projection (too early in the cycle).
+ */
+export function budgetReadings(
+  budget: number,
+  projected: { auto?: number; api?: number }
+): MeterReading[] {
+  if (!(budget > 0)) {
+    return [];
+  }
+  const out: MeterReading[] = [];
+  if (projected.auto !== undefined) {
+    out.push({
+      id: 'auto-budget',
+      label: 'Cursor Models',
+      percent: projected.auto,
+      kind: 'budget',
+      thresholds: [budget],
+    });
+  }
+  if (projected.api !== undefined) {
+    out.push({
+      id: 'api-budget',
+      label: 'Other Models',
+      percent: projected.api,
+      kind: 'budget',
+      thresholds: [budget],
+    });
+  }
+  return out;
+}
