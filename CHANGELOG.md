@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.6.0
+
+### Features
+
+- `Plan Usage: Export Usage (CSV)` saves the daily history (up to 35 days) with peak Cursor Models and Other Models percents. No tokens or account data (#54)
+- `Plan Usage: Copy Diagnostics` copies versions, platform, token origin and expiry (never the value), the last error kind, and recent debug lines when debug is on. Every line is redacted, including email addresses (#55)
+
+### Internal
+
+- The `state.vscdb` path is resolved by a pure function, so macOS and Linux paths are covered by tests on any host. Real-machine checks on those OSes are still manual (#56)
+
 ## 0.5.0
 
 ### Features
