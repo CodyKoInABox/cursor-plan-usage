@@ -1,4 +1,5 @@
 import { fmtResetCountdown, parseCycleEndMs } from '../billing';
+import { onDemandView } from '../onDemand';
 import { cycleProgressPct, projectCyclePct } from '../projection';
 
 (function () {
@@ -108,6 +109,33 @@ import { cycleProgressPct, projectCyclePct } from '../projection';
       barHtml +
       projHtml +
       burnHtml +
+      `</section>`
+    );
+  }
+
+  const ONDEMAND_TIP =
+    'Spend beyond your plan, capped by the on-demand limit set in Cursor.';
+
+  /**
+   * On-demand meter between Other Models and the windows. Shows the cap and the
+   * spend against it; without a cap it shows spend only, and when off it says so.
+   */
+  function renderOnDemand(od) {
+    if (!od) return '';
+    const v = onDemandView(od);
+    const bar =
+      v.barPct != null
+        ? `<progress class="bar bar-ondemand" max="100" value="${v.barPct}" aria-label="On-demand: ${esc(v.headline)}">${esc(fmtPercent(v.barPct))}</progress>`
+        : '';
+    return (
+      `<hr class="divider" />` +
+      `<section class="section section-on-demand">` +
+      `<div class="section-head">` +
+      `<h2 class="section-title" title="${esc(ONDEMAND_TIP)}">On-demand</h2>` +
+      `<span class="percent${v.mode === 'disabled' ? ' ondemand-off' : ''}">${esc(v.headline)}</span>` +
+      `</div>` +
+      `<p class="subtitle${v.atLimit ? ' projection-over' : ''}">${esc(v.subtitle)}</p>` +
+      bar +
       `</section>`
     );
   }
@@ -422,6 +450,7 @@ import { cycleProgressPct, projectCyclePct } from '../projection';
         cyclePct,
         data.burn && data.burn.api
       ) +
+      renderOnDemand(data.onDemand) +
       usageSoFar +
       sinceLastCommit +
       thisBranch +

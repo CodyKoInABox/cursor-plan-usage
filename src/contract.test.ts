@@ -2,6 +2,7 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import { describe, expect, it } from 'vitest';
 import { parseCycleEndMs } from './billing';
+import { parseOnDemand } from './onDemand';
 import type { PlanInfoResponse } from './types';
 import { assertUsageShape, UnexpectedResponseError } from './usageShape';
 
@@ -55,6 +56,16 @@ describe('GetCurrentPeriodUsage contract', () => {
     expect(parseCycleEndMs(body.billingCycleEnd)).toBe(
       Date.UTC(2026, 11, 1)
     );
+  });
+
+  it('reads on-demand spend and cap from spendLimitUsage', () => {
+    const body = fixture('currentPeriodUsageOnDemand.json');
+    expect(() => assertUsageShape(body)).not.toThrow();
+    expect(parseOnDemand(body)).toEqual({
+      mode: 'fixed',
+      usedCents: 340,
+      limitCents: 2000,
+    });
   });
 
   it('rejects a renamed percent field instead of showing 0%', () => {

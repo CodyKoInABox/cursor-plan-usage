@@ -147,7 +147,7 @@
         "cursorPlanUsage.alerts": {
           "type": "boolean",
           "default": true,
-          "description": "Show a warning when Cursor Models or Other Models usage crosses an alert threshold. Each threshold alerts once per billing cycle."
+          "description": "Show a warning when Cursor Models, Other Models, or the on-demand cap crosses an alert threshold. Each threshold alerts once per billing cycle."
         },
         "cursorPlanUsage.alertThresholds": {
           "type": "array",

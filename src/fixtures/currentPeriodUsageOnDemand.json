@@ -1,0 +1,17 @@
+{
+  "planUsage": {
+    "autoPercentUsed": 28.5,
+    "apiPercentUsed": 40,
+    "totalSpend": 2340,
+    "includedSpend": 2000,
+    "limit": 2000,
+    "remaining": 0
+  },
+  "spendLimitUsage": {
+    "individualUsed": 340,
+    "individualLimit": 2000
+  },
+  "billingCycleStart": "1793491200000",
+  "billingCycleEnd": "1796083200000",
+  "membershipType": "pro"
+}
