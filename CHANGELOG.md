@@ -1,11 +1,11 @@
 # Changelog
 
-## Unreleased
+## 0.7.0
 
 ### Features
 
-- On-demand meter between Other Models and the usage windows: spend against the per-user cap set in Cursor (`$3.40 / $20.00`, percent of limit, and what is left). Shows `Off` when on-demand is disabled and spend only when the cap is unlimited. Read from `spendLimitUsage` in Cursor's usage response
-- Threshold alerts (`cursorPlanUsage.alertThresholds`) cover the on-demand cap too, once per threshold per billing cycle
+- On-demand meter between Other Models and the usage windows: spend against the per-user cap set in Cursor (`$3.40 / $20.00`, percent of limit, and what is left). Shows `Off` when on-demand is disabled and spend only when the cap is unlimited. Read from `spendLimitUsage` in Cursor's usage response (#80)
+- Threshold alerts (`cursorPlanUsage.alertThresholds`) cover the on-demand cap too, once per threshold per billing cycle (#80)
 
 ## 0.6.0
 
