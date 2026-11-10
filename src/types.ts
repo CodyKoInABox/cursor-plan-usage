@@ -25,6 +25,8 @@ export interface UsageSnapshot {
   tokenInfo?: TokenInfo;
   /** Per-day usage for the history chart, oldest first. */
   history?: DailyUsage[];
+  /** On-demand spend beyond the plan. Absent when the API sends no spend-limit block. */
+  onDemand?: OnDemandUsage;
   /** Burn-rate estimates from the last-hour window. Absent when not computable. */
   burn?: {
     auto?: BurnEstimate;
@@ -38,6 +40,15 @@ export interface UsageSnapshot {
     isDefaultBranch?: boolean;
   };
 }
+
+/**
+ * On-demand spend for the billing cycle, in cents. `disabled` means no cap is
+ * set (or it is 0), `unlimited` means the cap is the API's no-limit sentinel.
+ */
+export type OnDemandUsage =
+  | { mode: 'disabled'; usedCents: number }
+  | { mode: 'unlimited'; usedCents: number }
+  | { mode: 'fixed'; usedCents: number; limitCents: number };
 
 /** Delta for a time window relative to a baseline sample. */
 export interface UsageWindow {

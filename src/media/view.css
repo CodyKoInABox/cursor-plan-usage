@@ -2,6 +2,7 @@
   color-scheme: light dark;
   --bar-cursor: #3b82f6;
   --bar-other: #f59e0b;
+  --bar-ondemand: #a855f7;
   --bar-cycle: var(--vscode-progressBar-background, #22c55e);
   --bar-track: color-mix(in srgb, var(--vscode-foreground) 18%, transparent);
   --muted: var(--vscode-descriptionForeground);
@@ -212,6 +213,10 @@ body {
   accent-color: var(--bar-other);
 }
 
+.bar-ondemand {
+  accent-color: var(--bar-ondemand);
+}
+
 .bar-cycle {
   accent-color: var(--bar-cycle);
   height: 6px;
@@ -249,6 +254,18 @@ body {
 
 .bar-other::-moz-progress-bar {
   background: linear-gradient(90deg, #d97706, var(--bar-other));
+}
+
+.bar-ondemand::-webkit-progress-value {
+  background: linear-gradient(90deg, #7e22ce, var(--bar-ondemand));
+}
+
+.bar-ondemand::-moz-progress-bar {
+  background: linear-gradient(90deg, #7e22ce, var(--bar-ondemand));
+}
+
+.ondemand-off {
+  color: var(--muted);
 }
 
 .bar-cycle::-moz-progress-bar {

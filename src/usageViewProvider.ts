@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import type { ErrorInfo } from './errors';
-import type { BurnEstimate, UsageSnapshot } from './types';
+import type { BurnEstimate, OnDemandUsage, UsageSnapshot } from './types';
 
 type HostToWebview =
   | { type: 'usageData'; data: UsageSnapshot }
@@ -200,8 +200,17 @@ function sameUsage(a: UsageSnapshot | undefined, b: UsageSnapshot): boolean {
     a.tokenInfo?.expiresAt === b.tokenInfo?.expiresAt &&
     sameBurn(a.burn?.auto, b.burn?.auto) &&
     sameBurn(a.burn?.api, b.burn?.api) &&
+    sameOnDemand(a.onDemand, b.onDemand) &&
     JSON.stringify(a.history ?? []) === JSON.stringify(b.history ?? [])
   );
+}
+
+/** On-demand spend changes on its own, so it must count as a change or the sidebar goes stale. */
+function sameOnDemand(a: OnDemandUsage | undefined, b: OnDemandUsage | undefined): boolean {
+  if (!a || !b) {
+    return a === b;
+  }
+  return JSON.stringify(a) === JSON.stringify(b);
 }
 
 /**

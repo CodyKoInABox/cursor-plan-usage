@@ -28,6 +28,7 @@ import {
 } from './alerts';
 import { fmtResetCountdown, parseCycleEndMs } from './billing';
 import { withBurnEstimates } from './burnRate';
+import { onDemandReading } from './onDemand';
 import { cycleProgressPct, projectCyclePct } from './projection';
 import { shouldWarnTokenExpiry, tokenExpiryMessage } from './tokenExpiry';
 import {
@@ -210,9 +211,11 @@ export function activate(context: vscode.ExtensionContext): void {
       parseCycleEndMs(snapshot.billingCycleEnd),
       Date.now()
     );
+    const onDemand = onDemandReading(snapshot.onDemand);
     const readings: MeterReading[] = [
       { id: 'auto', label: 'Cursor Models', percent: snapshot.autoPercentUsed },
       { id: 'api', label: 'Other Models', percent: snapshot.apiPercentUsed },
+      ...(onDemand ? [onDemand] : []),
       ...budgetReadings(budget, {
         auto: projectCyclePct(snapshot.autoPercentUsed, progress),
         api: projectCyclePct(snapshot.apiPercentUsed, progress),

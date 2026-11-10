@@ -22,7 +22,8 @@
 - **Since last commit** — plan % burned while the working tree is dirty; resets on each commit. Hidden when the tree is clean
 - **This branch** — plan % while a feature branch is checked out; pauses on `main` / other branches and restores when you return. Hidden on the default branch
 - **Smart refresh** — updates on focus and AI activity; pauses when Cursor is unfocused
-- **Alerts** — warns at 80% and 95% by default, optional monthly budget projection, and a warning 24h before the session token expires
+- **On-demand meter** — spend beyond your plan against the per-user cap you set in Cursor (`$3.40 / $20.00`), with what is left. Shows `Off` when on-demand is disabled
+- **Alerts** — warns at 80% and 95% by default (Cursor Models, Other Models, and the on-demand cap), optional monthly budget projection, and a warning 24h before the session token expires
 - **Usage history** — 14-day CM / OM chart, collapsed under the meters so the top of the panel stays clean
 
 

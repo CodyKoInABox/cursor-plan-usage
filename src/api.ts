@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { debugLog } from './log';
 import { tokenInfoFor } from './tokenInfo';
+import { parseOnDemand } from './onDemand';
 import { assertUsageShape } from './usageShape';
 import type { AuthResult, PlanInfoResponse, UsageSnapshot } from './types';
 
@@ -145,6 +146,7 @@ export async function fetchUsageSnapshot(auth: AuthResult): Promise<UsageSnapsho
     apiPercentUsed: pickPercent(plan?.apiPercentUsed),
     includedSpendCents: includedSpend,
     includedLimitCents: includedLimit,
+    onDemand: parseOnDemand(usage),
     billingCycleStart: usage.billingCycleStart,
     billingCycleEnd: usage.billingCycleEnd,
     refreshedAt: new Date().toISOString(),

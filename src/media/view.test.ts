@@ -210,4 +210,76 @@ describe('view.js rendering', () => {
     expect(btn.disabled).toBe(true);
     expect(view.posted).toContainEqual({ type: 'refresh' });
   });
+
+  describe('on-demand meter', () => {
+    it('shows spend against the cap with a bar, between Other Models and the windows', () => {
+      const view = mount();
+      view.send({
+        type: 'usageData',
+        data: usage({
+          onDemand: { mode: 'fixed', usedCents: 340, limitCents: 2000 },
+          lastHour: { autoPercentDelta: 0, apiPercentDelta: 0, since: new Date().toISOString(), partial: false },
+        }),
+      });
+
+      const section = view.app().querySelector('section.section-on-demand')!;
+      expect(section).not.toBeNull();
+      expect(section.querySelector('.section-title')?.textContent).toBe('On-demand');
+      expect(section.querySelector('.percent')?.textContent).toBe('$3.40 / $20.00');
+      expect(section.querySelector('.subtitle')?.textContent).toBe(
+        '17% of limit · $16.60 left'
+      );
+      expect(section.querySelector('progress.bar-ondemand')?.getAttribute('value')).toBe('17');
+
+      const sections = Array.from(view.app().querySelectorAll('section'));
+      const idx = sections.indexOf(section as HTMLElement);
+      expect(sections[idx - 1].querySelector('.section-title')?.textContent).toBe('Other Models');
+      expect(sections[idx + 1].querySelector('.section-title')?.textContent).toBe('Recent usage');
+    });
+
+    it('is hidden when the API sends no spend-limit block', () => {
+      const view = mount();
+      view.send({ type: 'usageData', data: usage() });
+
+      expect(view.app().querySelector('.section-on-demand')).toBeNull();
+    });
+
+    it('says Off and draws no bar when on-demand is disabled', () => {
+      const view = mount();
+      view.send({
+        type: 'usageData',
+        data: usage({ onDemand: { mode: 'disabled', usedCents: 0 } }),
+      });
+
+      const section = view.app().querySelector('.section-on-demand')!;
+      expect(section.querySelector('.percent')?.textContent).toBe('Off');
+      expect(section.querySelector('.percent')?.classList.contains('ondemand-off')).toBe(true);
+      expect(section.querySelector('progress')).toBeNull();
+    });
+
+    it('shows spend only when the cap is unlimited', () => {
+      const view = mount();
+      view.send({
+        type: 'usageData',
+        data: usage({ onDemand: { mode: 'unlimited', usedCents: 750 } }),
+      });
+
+      const section = view.app().querySelector('.section-on-demand')!;
+      expect(section.querySelector('.percent')?.textContent).toBe('$7.50 used');
+      expect(section.querySelector('.subtitle')?.textContent).toBe('No spend limit set');
+      expect(section.querySelector('progress')).toBeNull();
+    });
+
+    it('flags the limit in red text when spend reaches the cap', () => {
+      const view = mount();
+      view.send({
+        type: 'usageData',
+        data: usage({ onDemand: { mode: 'fixed', usedCents: 2000, limitCents: 2000 } }),
+      });
+
+      const sub = view.app().querySelector('.section-on-demand .subtitle')!;
+      expect(sub.textContent).toBe('Limit reached');
+      expect(sub.classList.contains('projection-over')).toBe(true);
+    });
+  });
 });
